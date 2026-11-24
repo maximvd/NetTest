@@ -17,22 +17,19 @@ int page_to_int(model::AppPage page) {
 
 BaseViewModel::BaseViewModel()
     : title_subject_(model_.app_title()),
-      greeting_subject_(model_.greeting()),
       dark_mode_subject_(model_.dark_mode()),
       current_page_subject_(page_to_int(model_.current_page())),
-      counter_subject_(0),
-      bold_text_subject_(false),
-      info_visible_subject_(false),
-      quit_requested_subject_(false) {}
+      quit_requested_subject_(false) {
+    // Open on the page for whichever link carries the internet connection.
+    if (network_.default_route_kind() == LinkKind::Wireless) {
+        show_wifi_page();
+    }
+}
 
 BaseViewModel::~BaseViewModel() = default;
 
 lv_subject_t* BaseViewModel::title_subject() {
     return title_subject_.native();
-}
-
-lv_subject_t* BaseViewModel::greeting_subject() {
-    return greeting_subject_.native();
 }
 
 lv_subject_t* BaseViewModel::dark_mode_subject() {
@@ -41,18 +38,6 @@ lv_subject_t* BaseViewModel::dark_mode_subject() {
 
 lv_subject_t* BaseViewModel::current_page_subject() {
     return current_page_subject_.native();
-}
-
-lv_subject_t* BaseViewModel::counter_subject() {
-    return counter_subject_.native();
-}
-
-lv_subject_t* BaseViewModel::bold_text_subject() {
-    return bold_text_subject_.native();
-}
-
-lv_subject_t* BaseViewModel::info_visible_subject() {
-    return info_visible_subject_.native();
 }
 
 lv_subject_t* BaseViewModel::quit_requested_subject() {
@@ -77,45 +62,48 @@ model::AppPage BaseViewModel::current_page() const {
     return model_.current_page();
 }
 
-void BaseViewModel::show_apple_page() {
-    model_.set_current_page(model::AppPage::Apple);
+bool BaseViewModel::is_link_page() const {
+    return model_.current_page() != model::AppPage::Tests;
+}
+
+LinkKind BaseViewModel::current_link_kind() const {
+    return model_.current_page() == model::AppPage::Wifi ? LinkKind::Wireless : LinkKind::Wired;
+}
+
+void BaseViewModel::show_ethernet_page() {
+    model_.set_current_page(model::AppPage::Ethernet);
     publish_all();
 }
 
-void BaseViewModel::show_butter_page() {
-    model_.set_current_page(model::AppPage::Butter);
+void BaseViewModel::show_wifi_page() {
+    model_.set_current_page(model::AppPage::Wifi);
     publish_all();
 }
 
-void BaseViewModel::toggle_page() {
-    model_.toggle_page();
+void BaseViewModel::show_last_link_page() {
+    model_.set_current_page(model_.last_link_page());
     publish_all();
 }
 
-void BaseViewModel::increment_counter() {
-    counter_subject_.set(counter_subject_.value() + 1);
-}
-
-void BaseViewModel::decrement_counter() {
-    const auto next = counter_subject_.value() - 1;
-    counter_subject_.set(next < 0 ? 0 : next);
-}
-
-void BaseViewModel::toggle_bold_text() {
-    bold_text_subject_.toggle();
-}
-
-void BaseViewModel::toggle_info() {
-    info_visible_subject_.toggle();
+void BaseViewModel::show_tests_page() {
+    model_.set_current_page(model::AppPage::Tests);
+    publish_all();
+    // First visit runs the checks straight away; later visits keep the last result.
+    if (network_.test_report().runs == 0) {
+        network_.run_tests();
+    }
 }
 
 void BaseViewModel::request_quit() {
     quit_requested_subject_.set(true);
 }
 
+NetworkViewModel& BaseViewModel::network() {
+    return network_;
+}
+
 void BaseViewModel::publish_all() {
     title_subject_.set(model_.app_title());
-    greeting_subject_.set(model_.greeting());
     dark_mode_subject_.set(model_.dark_mode());
     current_page_subject_.set(page_to_int(model_.current_page()));
 }

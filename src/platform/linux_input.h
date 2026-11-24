@@ -20,7 +20,6 @@ using GlobalKeyListener = bool (*)(uint32_t key,
 
 void init_key_input(lv_display_t* display);
 void attach_key_router(lv_indev_t* indev);
-void set_nav_shortcut_mode(bool enabled);
 void register_nav_button(size_t index, lv_obj_t* button);
 void unregister_nav_button(size_t index, lv_obj_t* button);
 void set_key_release_listener(KeyReleaseListener listener, void* user_data);

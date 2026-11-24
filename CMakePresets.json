@@ -31,6 +31,7 @@
             "cacheVariables": {
                 "CMAKE_C_COMPILER": "/usr/bin/gcc",
                 "CMAKE_CXX_COMPILER": "/usr/bin/g++",
+                "CM0_SDK_ROOT": "/",
                 "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
                 "FETCHCONTENT_BASE_DIR": "${sourceDir}/.cache/cp0-deps",
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/${presetName}/install",

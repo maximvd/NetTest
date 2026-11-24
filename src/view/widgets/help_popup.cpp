@@ -21,18 +21,19 @@ struct HelpRow {
     const char* action;
 };
 
-constexpr std::array<HelpRow, 5> kAppleRows = {{
-    {"HOLD ESC / 4", "Exit"},
-    {"5", "Text weight"},
-    {"6", "Light / dark"},
-    {"7", "Version info"},
-    {"8", "Open counter"},
+constexpr std::array<HelpRow, 5> kLinkRows = {{
+    {"HOLD ESC", "Exit"},
+    {"4 / 5 / 6", "Ethernet / Wi-Fi / Tests"},
+    {"UP / DOWN", "Previous / next interface"},
+    {"8", "Light / dark"},
 }};
 
-constexpr std::array<HelpRow, 3> kButterRows = {{
-    {"ESC", "Back to home"},
-    {"Z / LEFT", "Decrease"},
-    {"C / RIGHT", "Increase"},
+constexpr std::array<HelpRow, 5> kTestsRows = {{
+    {"ESC", "Back"},
+    {"4 / 5 / 6", "Ethernet / Wi-Fi / Tests"},
+    {"7", "Run checks again"},
+    {"8", "Light / dark"},
+    {"CHECKS", "Gateway, 1.1.1.1, DNS, TCP 443"},
 }};
 
 } // namespace
@@ -156,18 +157,17 @@ bool HelpPopup::visible() const {
 }
 
 void HelpPopup::update_rows(model::AppPage page) {
-    const bool butter = page == model::AppPage::Butter;
-    lv_label_set_text(page_badge_, butter ? "COUNTER" : "HOME");
+    const bool tests = page == model::AppPage::Tests;
+    lv_label_set_text(page_badge_, tests ? "TESTS" : page == model::AppPage::Wifi ? "WI-FI" : "ETHERNET");
+    const auto& rows = tests ? kTestsRows : kLinkRows;
     for (std::size_t i = 0; i < rows_.size(); ++i) {
-        const bool row_visible = butter ? i < kButterRows.size() : i < kAppleRows.size();
-        if (!row_visible) {
+        if (i >= rows.size() || !rows[i].key) {
             lv_obj_add_flag(rows_[i].row, LV_OBJ_FLAG_HIDDEN);
             continue;
         }
         lv_obj_remove_flag(rows_[i].row, LV_OBJ_FLAG_HIDDEN);
-        const auto& row = butter ? kButterRows[i] : kAppleRows[i];
-        lv_label_set_text(rows_[i].key, row.key);
-        lv_label_set_text(rows_[i].action, row.action);
+        lv_label_set_text(rows_[i].key, rows[i].key);
+        lv_label_set_text(rows_[i].action, rows[i].action);
     }
 }
 

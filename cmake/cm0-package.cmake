@@ -94,7 +94,8 @@ set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "${APP_DEBIAN_ARCHITECTURE}")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${APP_MAINTAINER}")
 set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
-set(APP_DEBIAN_DEPENDS "libc6, libstdc++6, libgcc-s1, libfreetype6, libpng16-16, libjpeg62-turbo, zlib1g")
+# libcap2-bin provides setcap, used by postinst to grant CAP_NET_RAW.
+set(APP_DEBIAN_DEPENDS "libc6, libstdc++6, libgcc-s1, libfreetype6, libpng16-16, libjpeg62-turbo, zlib1g, libcap2-bin")
 if(FMT_INCLUDE_DIR AND FMT_LIBRARY)
     string(APPEND APP_DEBIAN_DEPENDS ", libfmt10")
 endif()
@@ -107,6 +108,14 @@ configure_file(
     "${APP_GENERATED_DIR}/conffiles"
     @ONLY
 )
-set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${APP_GENERATED_DIR}/conffiles")
+configure_file(
+    "${CMAKE_CURRENT_LIST_DIR}/templates/postinst.in"
+    "${APP_GENERATED_DIR}/postinst"
+    @ONLY
+)
+set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
+    "${APP_GENERATED_DIR}/conffiles"
+    "${APP_GENERATED_DIR}/postinst"
+)
 
 include(CPack)

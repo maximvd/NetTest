@@ -9,14 +9,14 @@
 namespace model {
 
 enum class AppPage {
-    Apple  = 0,
-    Butter = 1,
+    Ethernet = 0, // wired interfaces, addresses, switch/port
+    Wifi     = 1, // wireless interfaces, addresses, SSID/signal
+    Tests    = 2, // ping / DNS / internet checks
 };
 
 class BaseModel {
 public:
     const char* app_title() const;
-    const char* greeting() const;
 
     bool dark_mode() const;
     void set_dark_mode(bool enabled);
@@ -24,11 +24,13 @@ public:
 
     AppPage current_page() const;
     void set_current_page(AppPage page);
-    void toggle_page();
+    // The Ethernet or Wi-Fi page shown most recently (where ESC on Tests returns).
+    AppPage last_link_page() const;
 
 private:
-    bool dark_mode_ = false;
-    AppPage current_page_ = AppPage::Apple;
+    bool dark_mode_ = true;
+    AppPage current_page_ = AppPage::Ethernet;
+    AppPage last_link_page_ = AppPage::Ethernet;
 };
 
 } // namespace model

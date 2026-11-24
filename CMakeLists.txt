@@ -428,6 +428,12 @@ target_link_libraries(${PROJECT_NAME}_platform
         lvgl
 )
 
+# LLDP/CDP listener and connectivity checks run on std::thread workers.
+find_package(Threads)
+if(Threads_FOUND)
+    target_link_libraries(${PROJECT_NAME}_platform PUBLIC Threads::Threads)
+endif()
+
 # ====================================================
 # Model sources
 # ====================================================

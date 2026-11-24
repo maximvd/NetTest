@@ -12,10 +12,6 @@ const char* BaseModel::app_title() const {
     return "NetTest";
 }
 
-const char* BaseModel::greeting() const {
-    return "Hello World";
-}
-
 bool BaseModel::dark_mode() const {
     return dark_mode_;
 }
@@ -32,13 +28,15 @@ AppPage BaseModel::current_page() const {
     return current_page_;
 }
 
-
 void BaseModel::set_current_page(AppPage page) {
     current_page_ = page;
+    if (page != AppPage::Tests) {
+        last_link_page_ = page;
+    }
 }
 
-void BaseModel::toggle_page() {
-    current_page_ = current_page_ == AppPage::Apple ? AppPage::Butter : AppPage::Apple;
+AppPage BaseModel::last_link_page() const {
+    return last_link_page_;
 }
 
 } // namespace model

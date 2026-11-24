@@ -6,8 +6,8 @@
 
 #include "screen_manager.h"
 
-#include "apple_screen.h"
-#include "butter_screen.h"
+#include "link_screen.h"
+#include "tests_screen.h"
 
 namespace app {
 namespace {
@@ -53,15 +53,20 @@ void ScreenManager::start() {
                                                          nullptr);
 }
 
-void ScreenManager::show_apple_screen() {
-    load_screen(std::make_unique<screen::AppleScreen>(view_model_, assets_));
-    loaded_page_ = model::AppPage::Apple;
-    has_loaded_page_ = true;
-}
-
-void ScreenManager::show_butter_screen() {
-    load_screen(std::make_unique<screen::ButterScreen>(view_model_, assets_));
-    loaded_page_ = model::AppPage::Butter;
+void ScreenManager::show_page(model::AppPage page) {
+    switch (page) {
+        case model::AppPage::Tests:
+            load_screen(std::make_unique<screen::TestsScreen>(view_model_, assets_));
+            break;
+        case model::AppPage::Wifi:
+            load_screen(std::make_unique<screen::LinkScreen>(view_model_, assets_, viewmodel::LinkKind::Wireless));
+            break;
+        case model::AppPage::Ethernet:
+        default:
+            load_screen(std::make_unique<screen::LinkScreen>(view_model_, assets_, viewmodel::LinkKind::Wired));
+            break;
+    }
+    loaded_page_ = page;
     has_loaded_page_ = true;
 }
 
@@ -82,12 +87,7 @@ void ScreenManager::flush_requested_page() {
         return;
     }
 
-    if (requested_page_ == model::AppPage::Butter) {
-        show_butter_screen();
-        return;
-    }
-
-    show_apple_screen();
+    show_page(requested_page_);
 }
 
 lv_obj_t* ScreenManager::current_screen() const {

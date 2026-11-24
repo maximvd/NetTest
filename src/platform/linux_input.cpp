@@ -25,7 +25,6 @@ namespace {
 std::array<lv_obj_t*, kNavKeyCount> nav_buttons{};
 uint32_t last_key = 0;
 bool last_key_pressed = false;
-bool nav_shortcut_mode = false;
 uint32_t pressed_key = 0;
 uint32_t press_started_at = 0;
 bool long_press_sent = false;
@@ -49,27 +48,11 @@ struct EvdevKeypad {
 };
 #endif
 
+// Keys 4..8 trigger the nav bar buttons left to right. ESC is handled by the
+// app's shortcut controller (hold to exit / back), not by a nav button.
 size_t nav_key_to_index(uint32_t key) {
-    if (nav_shortcut_mode) {
-        switch (key) {
-            case LV_KEY_ESC:
-                return 4;
-            case 'z':
-            case 'Z':
-            case LV_KEY_LEFT:
-                return 1;
-            case 'c':
-            case 'C':
-            case LV_KEY_RIGHT:
-                return 3;
-            default:
-                return kNavKeyCount;
-        }
-    }
-
     switch (key) {
         case '4':
-        case LV_KEY_ESC:
             return 0;
         case '5':
             return 1;
@@ -191,6 +174,10 @@ uint32_t map_evdev_key(uint16_t code) {
             return LV_KEY_LEFT;
         case KEY_RIGHT:
             return LV_KEY_RIGHT;
+        case KEY_UP:
+            return LV_KEY_UP;
+        case KEY_DOWN:
+            return LV_KEY_DOWN;
         case KEY_Z:
             return 'z';
         case KEY_C:
@@ -225,7 +212,8 @@ bool has_nav_keys(int fd) {
         return (key_bits[code / bits_per_word] & (1UL << (code % bits_per_word))) != 0;
     };
 
-    return has_key(KEY_ESC) || has_key(KEY_LEFT) || has_key(KEY_RIGHT) || has_key(KEY_Z) ||
+    return has_key(KEY_ESC) || has_key(KEY_LEFT) || has_key(KEY_RIGHT) || has_key(KEY_UP) ||
+           has_key(KEY_DOWN) || has_key(KEY_Z) ||
            has_key(KEY_C) || has_key(KEY_4) || has_key(KEY_5) || has_key(KEY_6) ||
            has_key(KEY_7) || has_key(KEY_8) || has_key(KEY_SYSRQ) || has_key(KEY_HELP);
 }
@@ -365,10 +353,6 @@ void attach_key_router(lv_indev_t* indev) {
     lv_indev_add_event_cb(indev, key_event_cb, LV_EVENT_KEY, nullptr);
 }
 
-void set_nav_shortcut_mode(bool enabled) {
-    nav_shortcut_mode = enabled;
-}
-
 void register_nav_button(size_t index, lv_obj_t* button) {
     if (index >= nav_buttons.size()) {
         return;
@@ -419,6 +403,10 @@ const char* describe_key(uint32_t key) {
             return "Left";
         case LV_KEY_RIGHT:
             return "Right";
+        case LV_KEY_UP:
+            return "Up";
+        case LV_KEY_DOWN:
+            return "Down";
         case kKeyPrintScreen:
             return "PrintScreen";
         case kKeyHelp:

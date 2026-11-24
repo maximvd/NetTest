@@ -1,0 +1,19 @@
+#!/bin/sh
+# @PROJECT_NAME@ post-install: allow raw network sockets without running as root.
+#
+# APPLaunch starts apps as the logged-in user. The Link screen listens for
+# LLDP/CDP switch advertisements on an AF_PACKET socket, and the ping check
+# falls back to a raw ICMP socket; both need CAP_NET_RAW (the same capability
+# ping uses). dpkg drops file capabilities on every upgrade, so this re-applies it.
+set -e
+
+if [ "$1" = "configure" ]; then
+    if command -v setcap >/dev/null 2>&1; then
+        setcap cap_net_raw+ep /usr/bin/@PROJECT_NAME@ || \
+            echo "@PROJECT_NAME@: setcap failed; switch/port discovery will need root" >&2
+    else
+        echo "@PROJECT_NAME@: setcap not found; switch/port discovery will need root" >&2
+    fi
+fi
+
+exit 0

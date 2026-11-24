@@ -43,19 +43,20 @@ It is intended to be used as a clean development baseline: desktop builds use an
 
 ## Project Overview
 
-In this example project, we used small MVVM-style structure around LVGL:
+NetTest uses a small MVVM-style structure around LVGL:
 
 - **UI layer**: screens and widgets are implemented with LVGL objects. `BaseScreen` owns the page root, title bar, nav bar, and page content. Widgets derive from `BaseWidgets` and expose a `build()` entry point.
 - **Data model**: `BaseModel` stores application state such as current page and theme mode.
-- **View model**: `BaseViewModel` exposes model state as LVGL observer subjects and provides UI actions such as page switching, counter updates, theme toggle, and quit request.
+- **View model**: `BaseViewModel` exposes model state as LVGL observer subjects and provides UI actions such as page switching, theme toggle, and quit request. `NetworkViewModel` owns the network services (interface snapshot, LLDP/CDP listener, connectivity tester) and publishes their updates on the UI thread.
 - **Reactive/data binding**: `src/reactive` wraps LVGL observer subjects and common bindings so labels, styles, flags, widget values, and events can be connected to application state.
 - **Data flow**: user input triggers widget callbacks, callbacks update `BaseViewModel`, view model publishes subjects, and bound UI objects refresh automatically through LVGL observers.
-- **Platform layer**: platform code owns Linux input integration and other hardware-facing services. The nav bar maps hardware/keyboard keys `4` to `8`, plus `ESC` for quit.
+- **Platform layer**: platform code owns Linux input integration and other hardware-facing services. The nav bar maps hardware/keyboard keys `4` to `8`; holding `ESC` quits.
 
-Current demo UI:
+Pages:
 
-- Page 1: Hello World, font weight toggle, LVGL version info, light/dark theme toggle, page navigation.
-- Page 2: Counter page, increment/decrement actions, simple page navigation.
+- **Ethernet**: link state, speed/duplex, IPv4/IPv6, gateway, DNS, MAC, and the switch name, port, VLAN and management IP learned from LLDP or CDP.
+- **Wi-Fi**: link state, addresses, SSID and signal strength.
+- **Tests**: gateway ping, ping to 1.1.1.1, a direct DNS query to each configured DNS server, and a TCP connect to 1.1.1.1:443.
 
 ## Repository Layout
 
@@ -94,8 +95,13 @@ Current demo UI:
 - `src/platform/linux_input.*`: Linux evdev keypad support and desktop SDL keyboard routing for nav buttons.
 - `src/reactive/subjects.*`: typed wrappers around LVGL subjects.
 - `src/reactive/bindings.*`: helper bindings for labels, theme, widget values, flags, states, and events.
-- `src/view/widgets/navbar.*`: bottom navigation bar and icon-button action mapping.
-- `src/view/widgets/icon_button.*`: transparent icon button with font/color/theme support.
+- `src/platform/net_info.*`: interfaces, addresses, link speed, Wi-Fi SSID/signal, default gateway and DNS servers.
+- `src/platform/neighbor_discovery.*`: LLDP/CDP parsing and the background listener for switch name/port/VLAN (needs `CAP_NET_RAW`, granted by the package's `postinst`).
+- `src/platform/net_probe.*`: ICMP ping, direct DNS queries, TCP connect, and the background connectivity tester.
+- `src/viewmodel/network_viewmodel.*`: owns the network services and per-kind (Ethernet/Wi-Fi) interface selection.
+- `src/view/screens/link_screen.*` / `tests_screen.*`: the Ethernet/Wi-Fi pages and the Tests page.
+- `src/view/widgets/navbar.*`: bottom navigation bar and its key-to-action mapping; the current page's icon uses the accent colour.
+- `src/view/widgets/icon_button.*`: transparent icon button with theme-aware colours.
 
 ## Build Options
 
@@ -410,24 +416,19 @@ sudo apt install --no-install-recommends ./NetTest_0.1.0_rev1_arm64.deb
 
 ### Navigation Keys
 
-The first page bottom nav bar maps hardware/keyboard keys from left to right:
+The bottom nav bar maps hardware/keyboard keys from left to right:
 
-| Key | Nav item |
-| --- | --- |
-| `4` | First icon button |
-| `5` | Second icon button |
-| `6` | Third icon button |
-| `7` | Fourth icon button |
-| `8` | Fifth icon button |
-| `ESC` | First icon button / quit |
+| Key | Ethernet / Wi-Fi page | Tests page |
+| --- | --- | --- |
+| `4` | Ethernet page | Ethernet page |
+| `5` | Wi-Fi page | Wi-Fi page |
+| `6` | Tests page | Tests page |
+| `7` | - | Run the checks again |
+| `8` | Light / dark theme | Light / dark theme |
+| `Up` / `Down` | Previous / next interface of that kind | - |
+| `ESC` | Hold to exit | Back to the last Ethernet / Wi-Fi page |
 
-The counter page uses direct keyboard shortcuts:
-
-| Key | Action |
-| --- | --- |
-| `ESC` | Return to the first page |
-| `Left` | Decrease the counter |
-| `Right` | Increase the counter |
+`FN+H` opens the keyboard help, `FN+J` saves a screenshot.
 
 ### Adding a Screen
 

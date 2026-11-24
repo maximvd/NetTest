@@ -11,8 +11,14 @@ log() {
   printf '\n==> %s\n' "$*"
 }
 
-log "Workflow: cmake --workflow --preset ${WORKFLOW_PRESET}"
-cmake --workflow --preset "${WORKFLOW_PRESET}"
+if [[ "${USE_CONTAINER:-auto}" == "1" ]] || { [[ "${USE_CONTAINER:-auto}" == "auto" ]] && [[ "$(uname -s)" != "Linux" ]]; }; then
+  # Packaging needs a Debian-based host; build-deb.sh provides one via Docker/OrbStack.
+  log "Workflow (in Debian container): ./build-deb.sh"
+  WORKFLOW_PRESET="${WORKFLOW_PRESET}" "$(dirname "$0")/build-deb.sh"
+else
+  log "Workflow: cmake --workflow --preset ${WORKFLOW_PRESET}"
+  cmake --workflow --preset "${WORKFLOW_PRESET}"
+fi
 
 shopt -s nullglob
 packages=( ${PACKAGE_GLOB} )

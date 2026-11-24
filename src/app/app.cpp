@@ -169,12 +169,17 @@ private:
             return true;
         }
 
-        const bool is_escape = key == LV_KEY_ESC;
-        const bool is_home_exit_key =
-            key == '4' &&
-            ((!long_pressed && view_model_.current_page() == model::AppPage::Apple) ||
-             (long_pressed && exit_key_pressed_ == key));
-        if (!is_escape && !is_home_exit_key) {
+        // Up / down move between interfaces on the Ethernet and Wi-Fi pages.
+        if ((key == LV_KEY_UP || key == LV_KEY_DOWN) && view_model_.is_link_page()) {
+            if (!long_pressed) {
+                view_model_.network().select_adjacent_interface(view_model_.current_link_kind(),
+                                                                key == LV_KEY_DOWN ? 1 : -1);
+            }
+            return true;
+        }
+
+        // Holding ESC on the Ethernet / Wi-Fi pages exits; ESC on Tests goes back.
+        if (key != LV_KEY_ESC) {
             return false;
         }
 
@@ -186,7 +191,7 @@ private:
         }
         else {
             exit_key_pressed_ = key;
-            exit_armed_ = view_model_.current_page() == model::AppPage::Apple;
+            exit_armed_ = view_model_.is_link_page();
             if (exit_armed_) {
                 toast_->show_persistent_highlighted("Hold ",
                                                     "ESC",
@@ -204,9 +209,8 @@ private:
 
         if (exit_armed_) {
             toast_->hide();
-        } else if (key == LV_KEY_ESC &&
-                   view_model_.current_page() == model::AppPage::Butter) {
-            view_model_.show_apple_page();
+        } else if (key == LV_KEY_ESC && !view_model_.is_link_page()) {
+            view_model_.show_last_link_page();
         }
         exit_key_pressed_ = 0;
         exit_armed_ = false;
