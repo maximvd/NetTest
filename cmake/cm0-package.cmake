@@ -13,7 +13,9 @@ set(APP_DEBIAN_ARCHITECTURE "arm64" CACHE STRING "Debian package architecture")
 # still a template/M5Stack identity, so set your own name and email here.
 set(APP_MAINTAINER "TODO Your Name <todo@example.invalid>" CACHE STRING "Debian package maintainer")
 set(APP_PACKAGE_DESCRIPTION "Network tester for CardputerZero" CACHE STRING "Debian package summary")
-set(APP_INSTALL_SYSTEMD_SERVICE ON CACHE BOOL "Install a systemd service file for embedded deployments")
+# Off: APPLaunch starts NetTest on demand; it never runs as a boot service
+# (which would also have to be declared as store.permissions.background_service).
+set(APP_INSTALL_SYSTEMD_SERVICE OFF CACHE BOOL "Install a systemd service file for embedded deployments")
 
 set(APP_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/package")
 configure_file(

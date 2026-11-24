@@ -491,7 +491,7 @@ Package layout:
 | `/usr/share/nettest/` | Runtime assets: fonts, images, audio. |
 | `/usr/share/APPLaunch/applications/nettest.desktop` | APPLaunch launcher entry. |
 | `/usr/share/APPLaunch/share/images/template*.png` | APPLaunch launcher icons/fallbacks. |
-| `/usr/lib/systemd/system/nettest.service` | Optional systemd service for embedded autostart. |
+| `/usr/lib/systemd/system/nettest.service` | Only when configured with `-DAPP_INSTALL_SYSTEMD_SERVICE=ON` (off by default; APPLaunch starts the app). |
 | `/usr/share/doc/nettest/` | README and third-party asset license notes. |
 
 Build and package:
