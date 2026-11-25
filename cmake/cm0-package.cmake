@@ -11,7 +11,7 @@ set(APP_DEBIAN_REVISION "rev1" CACHE STRING "Debian package revision/vendor suff
 set(APP_DEBIAN_ARCHITECTURE "arm64" CACHE STRING "Debian package architecture")
 # Deliberately a placeholder: the store rejects packages whose Maintainer is
 # still a template/M5Stack identity, so set your own name and email here.
-set(APP_MAINTAINER "TODO Your Name <todo@example.invalid>" CACHE STRING "Debian package maintainer")
+set(APP_MAINTAINER "Maxim Van Damme <7513148+maximvd@users.noreply.github.com>" CACHE STRING "Debian package maintainer")
 set(APP_PACKAGE_DESCRIPTION "Network tester for CardputerZero" CACHE STRING "Debian package summary")
 # Off: APPLaunch starts NetTest on demand; it never runs as a boot service
 # (which would also have to be declared as store.permissions.background_service).

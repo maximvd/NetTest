@@ -14,8 +14,8 @@
     ],
     "icon": "assets/images/nettest.png",
     "license": "MIT",
-    "source_repo": "https://git.vandamme.cloud/maxim/nettest",
-    "author": { "display_name": "Maxim Van Damme" },
+    "source_repo": "https://github.com/maximvd/nettest",
+    "author": { "github": "maximvd", "display_name": "Maxim Van Damme" },
     "share_code": "NTST",
     "permissions": {
       "camera": false,

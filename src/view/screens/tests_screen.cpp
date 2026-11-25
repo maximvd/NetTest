@@ -48,13 +48,13 @@ std::string summary_text(const Tester::Report& report) {
         return "Running checks...";
     }
     if (report.runs == 0) {
-        return "Press 8 to run the checks";
+        return "Press 7 to run the checks";
     }
     const auto& internet = report.steps[Tester::InternetTcp];
     const auto& dns = report.steps[Tester::Dns];
     const auto& gateway = report.steps[Tester::GatewayPing];
     if (internet.state == Tester::StepState::Ok && dns.state == Tester::StepState::Ok) {
-        return "Online. Press 8 to run again";
+        return "Online. Press 7 to run again";
     }
     if (internet.state == Tester::StepState::Ok && dns.state == Tester::StepState::Warn) {
         return "Online, but a DNS server is not answering";
