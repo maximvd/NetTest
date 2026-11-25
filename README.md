@@ -22,6 +22,7 @@
 
 <div align="center">
   <p>A network tester for the M5Stack CardputerZero, built with LVGL and CMake.</p>
+  <p><em>Vibecoded with <a href="https://claude.com/claude-code">Claude Code</a>.</em></p>
 </div>
 
 <p align="center" style="margin: 20px 0; display: flex; justify-content: center; flex-wrap: wrap; gap: 12px;">
