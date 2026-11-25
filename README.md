@@ -1,19 +1,9 @@
 <p align="center">
-  <picture>
-    <source
-      media="(prefers-color-scheme: dark)"
-      srcset="./screenshot/app-simulator-dark-darwin.png"
-    />
-    <source
-      media="(prefers-color-scheme: light)"
-      srcset="./screenshot/app-simulator-light-darwin.png"
-    />
   <img
-    src="./screenshot/app-simulator-light-darwin.png"
-    alt="NetTest running in the desktop simulator"
-    width="315"
+    src="./screenshot/store/tests.png"
+    alt="NetTest's Tests page on a CardputerZero"
+    width="640"
   />
-  </picture>
 </p>
 
 <div align="center">
@@ -68,7 +58,7 @@ Pages:
 │   ├── audio/              # Audio resources
 │   ├── fonts/              # TTF fonts loaded through FreeType
 │   └── images/             # Image resources
-├── screenshot/             # Simulator screenshots for supported desktop platforms
+├── screenshot/store/       # Device screenshots used by the app store listing
 ├── src/
 │   ├── app/                # Application lifecycle, asset loading, screen management
 │   ├── config/             # LVGL config headers for desktop and device builds
