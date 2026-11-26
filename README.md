@@ -1,7 +1,7 @@
 <p align="center">
   <img
-    src="./screenshot/store/tests.png"
-    alt="NetTest's Tests page on a CardputerZero"
+    src="./screenshot/store/wifi.png"
+    alt="NetTest's Wi-Fi page on a CardputerZero"
     width="640"
   />
 </p>
