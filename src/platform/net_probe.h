@@ -8,6 +8,7 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -47,18 +48,21 @@ public:
         InternetPing,
         Dns,
         InternetTcp,
+        Dhcp,
         StepCount,
     };
 
     struct StepResult {
         StepState state{StepState::Idle};
-        std::string value; // e.g. "4.1 ms  0% loss"
+        std::string headline; // the main figure, e.g. "4.1 ms" or "timeout"
+        std::string detail;   // a short line under it, e.g. "4/4 replies, 0% loss"
     };
 
     struct Report {
         std::array<StepResult, StepCount> steps{};
         bool running{false};
         uint32_t runs{0};
+        std::chrono::steady_clock::time_point finished_at{}; // end of the last completed run
     };
 
     static constexpr const char* kInternetPingTarget = "1.1.1.1";
@@ -76,18 +80,23 @@ public:
     static constexpr size_t kMaxDnsServers = 3;
 
     // Starts a run unless one is already in progress. An empty gateway skips
-    // the gateway ping; every DNS server (up to kMaxDnsServers) is queried.
-    void start(const std::string& gateway, const std::vector<std::string>& dns_servers);
+    // the gateway ping; every DNS server (up to kMaxDnsServers) is queried; the
+    // DHCP servers are counted on `dhcp_interface` (skipped when empty).
+    void start(const std::string& gateway,
+               const std::vector<std::string>& dns_servers,
+               const std::string& dhcp_interface);
 
     Report report() const;
     uint32_t revision() const;
 
+    // Short upper-case label for a step, e.g. "GATEWAY" or "TCP 443".
     static const char* step_name(Step step);
 
 private:
-    void run(std::string gateway, std::vector<std::string> dns_servers);
+    void run(std::string gateway, std::vector<std::string> dns_servers, std::string dhcp_interface);
+    StepResult check_dhcp(const std::string& interface_name);
     StepResult check_dns_servers(const std::vector<std::string>& servers);
-    void set_step(Step step, StepState state, std::string value);
+    void set_step(Step step, StepState state, std::string headline, std::string detail);
     StepResult ping_series(const std::string& target);
 
     mutable std::mutex mutex_;

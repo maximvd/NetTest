@@ -12,6 +12,8 @@
 
 #include "lvgl.h"
 
+#include <string>
+
 namespace viewmodel {
 
 class BaseViewModel {
@@ -44,6 +46,9 @@ public:
 
 private:
     void publish_all();
+    // Title bar text: the selected interface and its position on link pages.
+    std::string page_title() const;
+    static void link_changed_cb(lv_observer_t* observer, lv_subject_t* subject);
 
     model::BaseModel model_;
     reactive::StringSubject<32> title_subject_;
@@ -51,6 +56,7 @@ private:
     reactive::IntSubject current_page_subject_;
     reactive::BoolSubject quit_requested_subject_;
     NetworkViewModel network_;
+    lv_observer_t* link_observer_{nullptr};
 };
 
 } // namespace viewmodel

@@ -25,6 +25,7 @@ struct InterfaceInfo {
     int32_t speed_mbps{-1};    // wired only, -1 when unknown
     std::string duplex;        // "full", "half" or empty
     int32_t mtu{-1};
+    int32_t carrier_down_count{-1}; // times the link dropped since boot (Linux), -1 when unknown
     std::string ssid;          // wireless only
     bool has_signal{false};
     int32_t signal_dbm{0};     // wireless only, valid when has_signal

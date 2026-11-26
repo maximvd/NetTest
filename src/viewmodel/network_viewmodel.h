@@ -14,6 +14,7 @@
 #include "lvgl.h"
 
 #include <array>
+#include <map>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -48,6 +49,9 @@ public:
     // Moves the selection by `step` (+1 next, -1 previous), wrapping around.
     void select_adjacent_interface(LinkKind kind, int step);
 
+    // How often the interface's link dropped since NetTest started; -1 when unknown.
+    int32_t link_drops(const platform::net::InterfaceInfo& info) const;
+
     // Kind of the interface carrying the default route (Wired when unknown).
     LinkKind default_route_kind() const;
 
@@ -74,6 +78,7 @@ private:
 
     platform::net::NetSnapshot snapshot_;
     std::array<Selection, 2> selections_{};
+    std::map<std::string, int32_t> drop_baselines_; // carrier_down_count when first seen
 
     platform::net::NeighborListener neighbor_listener_;
     platform::net::ConnectivityTester tester_;

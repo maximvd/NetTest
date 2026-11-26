@@ -8,64 +8,106 @@
 
 #include "asset_manager.h"
 #include "bindings.h"
-#include "screen_utils.h"
-#include "theme.h"
 
+#include <array>
+#include <chrono>
 #include <string>
 
 namespace screen {
 namespace {
 
+using bento::Tone;
 using Tester = platform::net::ConnectivityTester;
 
-constexpr int32_t kPadX = 10;
-constexpr int32_t kRowsY = 6;
-constexpr int32_t kRowPitch = 21;
-constexpr int32_t kDotSize = 9;
-constexpr int32_t kNameX = kPadX + kDotSize + 8;
-constexpr int32_t kNameWidth = 92;
-constexpr int32_t kValueX = kNameX + kNameWidth;
+struct Verdict {
+    std::string value;
+    Tone tone;
+    std::string detail;
+};
 
-lv_color_t state_color(Tester::StepState state, const view::ThemePalette& colors) {
+Tone step_tone(Tester::StepState state) {
     switch (state) {
         case Tester::StepState::Ok:
-            return colors.success;
+            return Tone::Normal;
         case Tester::StepState::Warn:
-            return colors.warning;
+            return Tone::Warning;
         case Tester::StepState::Fail:
-            return colors.error;
+            return Tone::Error;
         case Tester::StepState::Running:
-            return colors.info;
         case Tester::StepState::Skipped:
         case Tester::StepState::Idle:
         default:
-            return colors.text_disabled;
+            return Tone::Muted;
     }
 }
 
-std::string summary_text(const Tester::Report& report) {
+// The 1.1.1.1 tile: ping, or the TCP 443 connect when the network blocks ping.
+Tester::StepResult internet_result(const Tester::Report& report) {
+    const auto& ping = report.steps[Tester::InternetPing];
+    const auto& tcp = report.steps[Tester::InternetTcp];
+    if (ping.state == Tester::StepState::Fail && tcp.state == Tester::StepState::Ok) {
+        return {Tester::StepState::Ok, tcp.headline, "ping blocked, TCP 443 ok"};
+    }
+    return ping;
+}
+
+Tester::StepResult shown_result(const Tester::Report& report, Tester::Step step) {
+    return step == Tester::InternetPing ? internet_result(report) : report.steps[step];
+}
+
+Verdict verdict(const Tester::Report& report) {
+    const auto& steps = report.steps;
     if (report.running) {
-        return "Running checks...";
+        for (const auto& step : steps) {
+            if (step.state == Tester::StepState::Running) {
+                return {"Checking...", Tone::Muted, step.detail};
+            }
+        }
+        return {"Checking...", Tone::Muted, ""};
     }
     if (report.runs == 0) {
-        return "Press 7 to run the checks";
+        return {"Not run yet", Tone::Muted, "press 7 to run the checks"};
     }
-    const auto& internet = report.steps[Tester::InternetTcp];
-    const auto& dns = report.steps[Tester::Dns];
-    const auto& gateway = report.steps[Tester::GatewayPing];
-    if (internet.state == Tester::StepState::Ok && dns.state == Tester::StepState::Ok) {
-        return "Online. Press 7 to run again";
+
+    constexpr std::array<Tester::Step, 4> kShown = {Tester::Dhcp, Tester::GatewayPing, Tester::InternetPing, Tester::Dns};
+    size_t passed = 0;
+    for (const auto step : kShown) {
+        passed += shown_result(report, step).state == Tester::StepState::Ok ? 1 : 0;
     }
-    if (internet.state == Tester::StepState::Ok && dns.state == Tester::StepState::Warn) {
-        return "Online, but a DNS server is not answering";
+    const auto passed_text = std::to_string(passed) + " of " + std::to_string(kShown.size()) + " checks passed";
+
+    const auto internet = steps[Tester::InternetTcp].state;
+    const auto dns = steps[Tester::Dns].state;
+    const auto gateway = steps[Tester::GatewayPing].state;
+    const auto dhcp = steps[Tester::Dhcp].state;
+    const bool internet_ok = internet == Tester::StepState::Ok;
+    if (internet_ok && dns == Tester::StepState::Ok) {
+        if (dhcp == Tester::StepState::Warn) {
+            return {"Online", Tone::Warning, "2+ DHCP servers: rogue?"};
+        }
+        return {"Online", Tone::Accent, passed_text};
     }
-    if (internet.state == Tester::StepState::Ok) {
-        return "Internet OK but DNS is failing";
+    if (internet_ok && dns == Tester::StepState::Warn) {
+        return {"Online", Tone::Warning, "a DNS server is not answering"};
     }
-    if (gateway.state == Tester::StepState::Ok || gateway.state == Tester::StepState::Warn) {
-        return "Gateway OK, no internet access";
+    if (internet_ok) {
+        return {"DNS failing", Tone::Error, "internet works, names don't resolve"};
     }
-    return "No connectivity. Check the link";
+    if (gateway == Tester::StepState::Ok || gateway == Tester::StepState::Warn) {
+        return {"No internet", Tone::Error, "gateway answers, internet doesn't"};
+    }
+    return {"Offline", Tone::Error, "no gateway or internet: check the link"};
+}
+
+std::string verdict_label(const Tester::Report& report) {
+    if (report.running || report.runs == 0) {
+        return "VERDICT";
+    }
+    const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() -
+                                                                          report.finished_at)
+                             .count();
+    const auto age = seconds < 120 ? std::to_string(seconds) + "s ago" : std::to_string(seconds / 60) + "m ago";
+    return "VERDICT · " + age;
 }
 
 } // namespace
@@ -76,65 +118,35 @@ TestsScreen::TestsScreen(viewmodel::BaseViewModel& view_model, app::AssetManager
 }
 
 void TestsScreen::build_content(lv_obj_t* content) {
-    const lv_font_t* name_font = assets().load_standard_font(12);
-    const lv_font_t* value_font = assets().load_standard_font(12, app::StandardFontWeight::Regular);
-    name_font = name_font ? name_font : &lv_font_montserrat_12;
-    value_font = value_font ? value_font : &lv_font_montserrat_12;
-    auto* dark_mode = view_model().dark_mode_subject();
-
-    for (size_t i = 0; i < rows_.size(); ++i) {
-        const auto y = kRowsY + static_cast<int32_t>(i) * kRowPitch;
-        auto& row = rows_[i];
-
-        row.dot = lv_obj_create(content);
-        lv_obj_remove_style_all(row.dot);
-        lv_obj_set_size(row.dot, kDotSize, kDotSize);
-        lv_obj_set_pos(row.dot, kPadX, y + 4);
-        lv_obj_set_style_radius(row.dot, LV_RADIUS_CIRCLE, 0);
-        lv_obj_set_style_bg_opa(row.dot, LV_OPA_COVER, 0);
-
-        row.name = util::create_label(content, name_font, kNameX, y, kNameWidth);
-        lv_label_set_text(row.name, Tester::step_name(static_cast<Tester::Step>(i)));
-        reactive::bind_theme(row.name, dark_mode, reactive::ThemeRole::Text);
-
-        row.value = util::create_label(content,
-                                       value_font,
-                                       kValueX,
-                                       y,
-                                       view::kScreenWidth - kValueX - kPadX,
-                                       LV_LABEL_LONG_MODE_SCROLL_CIRCULAR);
-        reactive::bind_theme(row.value, dark_mode, reactive::ThemeRole::Text);
+    const auto fonts = bento::Fonts::load(assets());
+    verdict_ = bento::create_tile(content, fonts, {0, 0, 2}, bento::ValueSize::Large);
+    constexpr std::array<bento::Cell, 4> kCells = {{{2, 0}, {0, 1}, {1, 1}, {2, 1}}};
+    for (size_t i = 0; i < steps_.size(); ++i) {
+        steps_[i].tile = bento::create_tile(content, fonts, kCells[i], bento::ValueSize::Large);
     }
 
-    summary_label_ = util::create_label(content,
-                                        name_font,
-                                        kPadX,
-                                        kRowsY + static_cast<int32_t>(rows_.size()) * kRowPitch + 4,
-                                        view::kScreenWidth - 2 * kPadX);
-
     reactive::observe_obj(content, view_model().network().tests_revision_subject(), tests_changed_cb, this);
-    reactive::observe_obj(content, dark_mode, tests_changed_cb, this);
+    reactive::observe_obj(content, view_model().dark_mode_subject(), tests_changed_cb, this);
+    // Ticks every second, which keeps "N s ago" current.
+    reactive::observe_obj(content, view_model().network().link_revision_subject(), tests_changed_cb, this);
 }
 
 void TestsScreen::refresh() {
     const auto report = view_model().network().test_report();
     const auto colors = view::palette(view_model().is_dark_mode());
 
-    for (size_t i = 0; i < rows_.size(); ++i) {
-        const auto& step = report.steps[i];
-        lv_obj_set_style_bg_color(rows_[i].dot, state_color(step.state, colors), 0);
-        util::set_text(rows_[i].value, step.state == Tester::StepState::Idle && !report.running ? "-" : step.value);
-    }
+    const auto result = verdict(report);
+    verdict_.set(verdict_label(report), result.value, result.tone, result.detail, colors);
 
-    util::set_text(summary_label_, summary_text(report));
-    const bool all_good = !report.running && report.runs > 0 &&
-                          report.steps[Tester::InternetTcp].state == Tester::StepState::Ok &&
-                          report.steps[Tester::Dns].state == Tester::StepState::Ok;
-    lv_obj_set_style_text_color(summary_label_,
-                                report.running || report.runs == 0 ? colors.text_disabled
-                                : all_good                         ? colors.success
-                                                                   : colors.warning,
-                                0);
+    for (auto& [step, tile] : steps_) {
+        const auto result = shown_result(report, step);
+        const bool idle = result.state == Tester::StepState::Idle;
+        tile.set(Tester::step_name(step),
+                 idle ? "-" : result.headline,
+                 step_tone(result.state),
+                 idle ? "" : result.detail,
+                 colors);
+    }
 }
 
 void TestsScreen::tests_changed_cb(lv_observer_t* observer, lv_subject_t*) {

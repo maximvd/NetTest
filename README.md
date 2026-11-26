@@ -45,9 +45,9 @@ NetTest uses a small MVVM-style structure around LVGL:
 
 Pages:
 
-- **Ethernet**: link state, speed/duplex, IPv4/IPv6, gateway, DNS, MAC, and the switch name, port, VLAN and management IP learned from LLDP or CDP.
-- **Wi-Fi**: link state, addresses, SSID and signal strength.
-- **Tests**: gateway ping, ping to 1.1.1.1, a direct DNS query to each configured DNS server, and a TCP connect to 1.1.1.1:443.
+- **Ethernet**: link speed/duplex with a link-drop counter, IPv4 address, gateway, DNS, and the switch port, switch name, VLAN and PoE power learned from LLDP or CDP, laid out as tiles.
+- **Wi-Fi**: network name, signal strength, address, gateway and DNS.
+- **Tests**: a verdict plus a DHCP server count (one DISCOVER, no lease taken; two servers flags a rogue), gateway ping, ping to 1.1.1.1 (backed by a TCP connect to 1.1.1.1:443 where ping is blocked), and a direct DNS query to each configured DNS server.
 
 ## Repository Layout
 
@@ -399,7 +399,7 @@ By default, the debian package is copied to '$HOME' folder, normally it's under 
 On your device, install the copied package with `apt` and replace the package file name with the one you copied:
 
 ```shell
-sudo apt install --no-install-recommends ./NetTest_0.1.0_rev1_arm64.deb
+sudo apt install --no-install-recommends ./NetTest_0.2.0_rev1_arm64.deb
 ```
 
 
@@ -414,7 +414,7 @@ The bottom nav bar maps hardware/keyboard keys from left to right:
 | `4` | Ethernet page | Ethernet page |
 | `5` | Wi-Fi page | Wi-Fi page |
 | `6` | Tests page | Tests page |
-| `7` | - | Run the checks again |
+| `7` | Next interface of that kind | Run the checks again |
 | `8` | Light / dark theme | Light / dark theme |
 | `Up` / `Down` | Previous / next interface of that kind | - |
 | `ESC` | Hold to exit | Back to the last Ethernet / Wi-Fi page |
@@ -470,7 +470,7 @@ Debian packages are produced with CPack and written to `dist/`. The package file
 Default example:
 
 ```text
-dist/NetTest_0.1.0_rev1_arm64.deb
+dist/NetTest_0.2.0_rev1_arm64.deb
 ```
 
 Package layout:

@@ -17,6 +17,7 @@ constexpr const char* ICON_MOON               = "\uE330";
 constexpr const char* ICON_SUN                = "\uE474";
 constexpr const char* ICON_HEARTBEAT          = "\uE2AC";
 constexpr const char* ICON_PLAY               = "\uE3D0";
+constexpr const char* ICON_ARROWS_DOWN_UP     = "\uE098";
 constexpr const char* ICON_WIFI_NONE          = "\uE4F0";
 constexpr const char* ICON_WIFI_LOW           = "\uE4EC";
 constexpr const char* ICON_WIFI_MEDIUM        = "\uE4EE";
@@ -31,36 +32,33 @@ constexpr const char* ICON_BAT_CHARGING       = "\uE0BC";
 
 namespace color {
 
-// Naive UI common color tokens, flattened to solid RGB values for LVGL.
-namespace light {
-constexpr uint32_t kPrimary      = 0x18a058;
-constexpr uint32_t kInfo         = 0x2080f0;
-constexpr uint32_t kSuccess      = 0x18a058;
-constexpr uint32_t kWarning      = 0xf0a020;
-constexpr uint32_t kError        = 0xd03050;
-constexpr uint32_t kBody         = 0xffffff;
-constexpr uint32_t kCard         = 0xffffff;
-constexpr uint32_t kAction       = 0xfafafc;
-constexpr uint32_t kButton       = 0xf5f5f5;
-constexpr uint32_t kBorder       = 0xe0e0e6;
-constexpr uint32_t kTextPrimary  = 0x1f2225;
-constexpr uint32_t kTextDisabled = 0xc2c2c2;
-} // namespace light
+struct PaletteHex {
+    uint32_t page;           // page, content area and both bars
+    uint32_t tile;           // bento tiles
+    uint32_t button;
+    uint32_t border;
+    uint32_t text;           // values
+    uint32_t text_secondary; // detail lines under a value
+    uint32_t text_muted;     // tile labels
+    uint32_t text_disabled;  // unavailable values and disabled icons
+    uint32_t primary;        // accent: active page, healthy link
+    uint32_t info;
+    uint32_t success;
+    uint32_t warning;
+    uint32_t error;
+};
 
-namespace dark {
-constexpr uint32_t kPrimary      = 0x63e2b7;
-constexpr uint32_t kInfo         = 0x70c0e8;
-constexpr uint32_t kSuccess      = 0x63e2b7;
-constexpr uint32_t kWarning      = 0xf2c97d;
-constexpr uint32_t kError        = 0xe88080;
-constexpr uint32_t kBody         = 0x101014;
-constexpr uint32_t kCard         = 0x18181c;
-constexpr uint32_t kAction       = 0x0f0f0f;
-constexpr uint32_t kButton       = 0x141414;
-constexpr uint32_t kBorder       = 0x3d3d3d;
-constexpr uint32_t kTextPrimary  = 0xe6e6e6;
-constexpr uint32_t kTextDisabled = 0x616161;
-} // namespace dark
+// "Bento" palette: a flat page with rounded tiles, plain text and one accent
+// colour per state. Text colours keep 4.5:1 contrast on their tiles.
+constexpr PaletteHex kDark{
+    0x0e1114, 0x1a1f25, 0x1a1f25, 0x2a313a, 0xeef1f4, 0xc3cad1, 0x9aa4ae,
+    0x5b6570, 0x4ade80, 0x60a5fa, 0x4ade80, 0xfbbf24, 0xf87171,
+};
+
+constexpr PaletteHex kLight{
+    0xe7eaee, 0xffffff, 0xffffff, 0xcdd2d8, 0x111827, 0x374151, 0x4b5563,
+    0x9ca3af, 0x15803d, 0x1d4ed8, 0x15803d, 0xb45309, 0xb42318,
+};
 
 } // namespace color
 

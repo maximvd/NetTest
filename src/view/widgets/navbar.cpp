@@ -16,8 +16,8 @@ namespace view::widgets {
 namespace {
 
 constexpr int32_t kButtonWidth = 32;
-constexpr int32_t kButtonHeight = 24;
-constexpr int32_t kIconSize = 22;
+constexpr int32_t kButtonHeight = 20;
+constexpr int32_t kIconSize = 18;
 // Nudges the evenly spaced buttons so they sit above the matching keys.
 constexpr std::array<int32_t, 5> kNavButtonXOffsets = {30, 17, 2, -15, -30};
 
@@ -40,6 +40,9 @@ NavBar::~NavBar() {
     if (theme_observer_) {
         lv_observer_remove(theme_observer_);
     }
+    if (link_observer_) {
+        lv_observer_remove(link_observer_);
+    }
 }
 
 void NavBar::build() {
@@ -60,6 +63,8 @@ void NavBar::build() {
     create_icon_buttons();
     page_observer_ = reactive::observe_obj(core_obj_, view_model_.current_page_subject(), update_icons_cb, this);
     theme_observer_ = reactive::observe_obj(core_obj_, view_model_.dark_mode_subject(), update_icons_cb, this);
+    link_observer_ =
+        reactive::observe_obj(core_obj_, view_model_.network().link_revision_subject(), update_icons_cb, this);
 }
 
 void NavBar::create_icon_buttons() {
@@ -81,6 +86,8 @@ void NavBar::create_icon_buttons() {
 void NavBar::update_icon_buttons() {
     const auto page = view_model_.current_page();
     const bool tests_page = page == model::AppPage::Tests;
+    const bool can_switch_interface =
+        !tests_page && view_model_.network().interfaces(view_model_.current_link_kind()).size() > 1;
 
     struct Spec {
         const char* icon;
@@ -91,7 +98,9 @@ void NavBar::update_icon_buttons() {
         {ICON_ETHERNET, Action::ShowEthernet, page == model::AppPage::Ethernet},
         {ICON_WIFI_HIGH, Action::ShowWifi, page == model::AppPage::Wifi},
         {ICON_HEARTBEAT, Action::ShowTests, tests_page},
-        tests_page ? Spec{ICON_PLAY, Action::RunTests, false} : Spec{"", Action::None, false},
+        tests_page             ? Spec{ICON_PLAY, Action::RunTests, false}
+        : can_switch_interface ? Spec{ICON_ARROWS_DOWN_UP, Action::NextInterface, false}
+                               : Spec{ICON_ARROWS_DOWN_UP, Action::None, false},
         {view_model_.is_dark_mode() ? ICON_SUN : ICON_MOON, Action::ToggleTheme, false},
     }};
 
@@ -115,6 +124,9 @@ void NavBar::perform(Action action) {
             break;
         case Action::ShowTests:
             view_model_.show_tests_page();
+            break;
+        case Action::NextInterface:
+            view_model_.network().select_adjacent_interface(view_model_.current_link_kind(), +1);
             break;
         case Action::RunTests:
             view_model_.network().run_tests();

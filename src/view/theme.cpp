@@ -11,37 +11,24 @@
 namespace view {
 
 ThemePalette palette(bool dark_mode) {
-    if (dark_mode) {
-        return {
-            lv_color_hex(color::dark::kBody),
-            lv_color_hex(color::dark::kCard),
-            lv_color_hex(color::dark::kAction),
-            lv_color_hex(color::dark::kButton),
-            lv_color_hex(color::dark::kBorder),
-            lv_color_hex(color::dark::kTextPrimary),
-            lv_color_hex(color::dark::kTextDisabled),
-            lv_color_hex(color::dark::kPrimary),
-            lv_color_hex(color::dark::kInfo),
-            lv_color_hex(color::dark::kSuccess),
-            lv_color_hex(color::dark::kWarning),
-            lv_color_hex(color::dark::kError),
-        };
-    }
-
-    return {
-        lv_color_hex(color::light::kBody),
-        lv_color_hex(color::light::kCard),
-        lv_color_hex(color::light::kAction),
-        lv_color_hex(color::light::kButton),
-        lv_color_hex(color::light::kBorder),
-        lv_color_hex(color::light::kTextPrimary),
-        lv_color_hex(color::light::kTextDisabled),
-        lv_color_hex(color::light::kPrimary),
-        lv_color_hex(color::light::kInfo),
-        lv_color_hex(color::light::kSuccess),
-        lv_color_hex(color::light::kWarning),
-        lv_color_hex(color::light::kError),
-    };
+    const auto& hex = dark_mode ? color::kDark : color::kLight;
+    ThemePalette colors{};
+    colors.background = lv_color_hex(hex.page);
+    colors.surface = lv_color_hex(hex.page);
+    colors.bar = lv_color_hex(hex.page);
+    colors.tile = lv_color_hex(hex.tile);
+    colors.button = lv_color_hex(hex.button);
+    colors.border = lv_color_hex(hex.border);
+    colors.text = lv_color_hex(hex.text);
+    colors.text_secondary = lv_color_hex(hex.text_secondary);
+    colors.text_muted = lv_color_hex(hex.text_muted);
+    colors.text_disabled = lv_color_hex(hex.text_disabled);
+    colors.primary = lv_color_hex(hex.primary);
+    colors.info = lv_color_hex(hex.info);
+    colors.success = lv_color_hex(hex.success);
+    colors.warning = lv_color_hex(hex.warning);
+    colors.error = lv_color_hex(hex.error);
+    return colors;
 }
 
 void apply_lvgl_theme(lv_display_t* display, bool dark_mode, const lv_font_t* font) {

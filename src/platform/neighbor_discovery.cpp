@@ -206,7 +206,34 @@ std::optional<Neighbor> parse_lldp_frame(const uint8_t* frame, size_t length) {
                 }
                 break;
             case 127: { // Organizationally specific
-                const bool ieee_802_1 = tlv_length >= 4 && value[0] == 0x00 && value[1] == 0x80 && value[2] == 0xc2;
+                if (tlv_length < 4) {
+                    break;
+                }
+                const bool ieee_802_1 = value[0] == 0x00 && value[1] == 0x80 && value[2] == 0xc2;
+                const bool ieee_802_3 = value[0] == 0x00 && value[1] == 0x12 && value[2] == 0x0f;
+                const bool lldp_med = value[0] == 0x00 && value[1] == 0x12 && value[2] == 0xbb;
+                if (ieee_802_3 && value[3] == 2 && tlv_length >= 7) {
+                    // Power via MDI: support(1) pair(1) class(1, 1 = class 0 ... 5 = class 4),
+                    // then with 802.3at: type(1) PD requested(2) PSE allocated(2), in 0.1 W.
+                    if (value[6] >= 1 && value[6] <= 5) {
+                        neighbor.poe_class = value[6] - 1;
+                    }
+                    if (tlv_length >= 12) {
+                        const auto allocated = read_u16(value + 10);
+                        if (allocated > 0) {
+                            neighbor.poe_milliwatts = allocated * 100;
+                        }
+                    }
+                    break;
+                }
+                if (lldp_med && value[3] == 4 && tlv_length >= 7 && neighbor.poe_milliwatts < 0) {
+                    // Extended Power-via-MDI: type/source/priority(1) value(2, 0.1 W).
+                    const auto power = read_u16(value + 5);
+                    if (power > 0) {
+                        neighbor.poe_milliwatts = power * 100;
+                    }
+                    break;
+                }
                 if (!ieee_802_1) {
                     break;
                 }
@@ -317,6 +344,11 @@ std::optional<Neighbor> parse_cdp_frame(const uint8_t* frame, size_t length) {
                     neighbor.vlan = read_u16(value);
                 }
                 break;
+            case 0x0010: // Power consumption, in mW
+                if (value_length >= 2 && read_u16(value) > 0) {
+                    neighbor.poe_milliwatts = read_u16(value);
+                }
+                break;
             case 0x0016: // Management addresses (preferred over 0x0002)
             {
                 auto address = first_cdp_ipv4(value, value_length);
@@ -422,6 +454,9 @@ void NeighborListener::set_neighbor(Neighbor neighbor) {
         }
         if (neighbor_->platform.empty()) {
             neighbor_->platform = neighbor.platform;
+        }
+        if (neighbor_->poe_milliwatts < 0) {
+            neighbor_->poe_milliwatts = neighbor.poe_milliwatts;
         }
     }
     else {

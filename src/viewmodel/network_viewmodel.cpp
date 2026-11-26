@@ -120,7 +120,15 @@ platform::net::ConnectivityTester::Report NetworkViewModel::test_report() const 
 
 void NetworkViewModel::run_tests() {
     refresh_snapshot();
-    tester_.start(snapshot_.gateway, snapshot_.dns_servers);
+    // DHCP is counted on the uplink; with no default route, on the cabled Ethernet port.
+    std::string dhcp_interface = snapshot_.gateway_interface;
+    if (dhcp_interface.empty()) {
+        const auto* wired = selected_interface(LinkKind::Wired);
+        if (wired && wired->carrier) {
+            dhcp_interface = wired->name;
+        }
+    }
+    tester_.start(snapshot_.gateway, snapshot_.dns_servers, dhcp_interface);
 }
 
 void NetworkViewModel::timer_cb(lv_timer_t* timer) {
@@ -154,8 +162,21 @@ void NetworkViewModel::poll() {
     }
 }
 
+int32_t NetworkViewModel::link_drops(const platform::net::InterfaceInfo& info) const {
+    const auto baseline = drop_baselines_.find(info.name);
+    if (info.carrier_down_count < 0 || baseline == drop_baselines_.end()) {
+        return -1;
+    }
+    return std::max(0, info.carrier_down_count - baseline->second);
+}
+
 void NetworkViewModel::refresh_snapshot() {
     snapshot_ = platform::net::read_snapshot();
+    for (const auto& info : snapshot_.interfaces) {
+        if (info.carrier_down_count >= 0) {
+            drop_baselines_.emplace(info.name, info.carrier_down_count); // keeps the first value
+        }
+    }
     update_selection(LinkKind::Wired);
     update_selection(LinkKind::Wireless);
     update_neighbor_listener();

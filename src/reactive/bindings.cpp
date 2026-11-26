@@ -65,8 +65,7 @@ void theme_observer(lv_observer_t* observer, lv_subject_t* subject) {
             set_common_box_style(obj);
             lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
             lv_obj_set_style_bg_color(obj, colors.bar, 0);
-            lv_obj_set_style_border_width(obj, 1, 0);
-            lv_obj_set_style_border_color(obj, colors.border, 0);
+            lv_obj_set_style_border_width(obj, 0, 0); // bars blend into the page
             lv_obj_set_style_text_color(obj, colors.text, 0);
             break;
         case ThemeRole::Button:

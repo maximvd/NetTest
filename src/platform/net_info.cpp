@@ -140,6 +140,7 @@ void read_sysfs(InterfaceInfo& info) {
                     std::filesystem::exists(root / "phy80211", ec);
     info.carrier = read_int_file(root / "carrier", 0) == 1;
     info.mtu = read_int_file(root / "mtu", info.mtu);
+    info.carrier_down_count = read_int_file(root / "carrier_down_count", -1);
     if (info.mac.empty()) {
         info.mac = read_text_file(root / "address");
     }

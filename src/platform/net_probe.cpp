@@ -6,6 +6,8 @@
 
 #include "net_probe.h"
 
+#include "dhcp_probe.h"
+
 #include <algorithm>
 #include <array>
 #include <cerrno>
@@ -36,6 +38,7 @@ constexpr int kPingTimeoutMs = 1000;
 constexpr int kPingIntervalMs = 250;
 constexpr int kTcpTimeoutMs = 3000;
 constexpr int kDnsTimeoutMs = 1500; // per attempt, two attempts
+constexpr int kDhcpWaitMs = 2500;   // offers from every server on the segment
 
 double elapsed_ms(Clock::time_point start) {
     return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
@@ -388,7 +391,9 @@ ConnectivityTester::~ConnectivityTester() {
     }
 }
 
-void ConnectivityTester::start(const std::string& gateway, const std::vector<std::string>& dns_servers) {
+void ConnectivityTester::start(const std::string& gateway,
+                               const std::vector<std::string>& dns_servers,
+                               const std::string& dhcp_interface) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (report_.running) {
@@ -396,7 +401,7 @@ void ConnectivityTester::start(const std::string& gateway, const std::vector<std
         }
         report_.running = true;
         for (auto& step : report_.steps) {
-            step = StepResult{StepState::Idle, ""};
+            step = StepResult{};
         }
         ++revision_;
     }
@@ -405,7 +410,7 @@ void ConnectivityTester::start(const std::string& gateway, const std::vector<std
         thread_.join();
     }
     stop_requested_ = false;
-    thread_ = std::thread(&ConnectivityTester::run, this, gateway, dns_servers);
+    thread_ = std::thread(&ConnectivityTester::run, this, gateway, dns_servers, dhcp_interface);
 }
 
 ConnectivityTester::Report ConnectivityTester::report() const {
@@ -420,21 +425,23 @@ uint32_t ConnectivityTester::revision() const {
 const char* ConnectivityTester::step_name(Step step) {
     switch (step) {
         case GatewayPing:
-            return "Gateway";
+            return "GATEWAY";
         case InternetPing:
-            return "Ping 1.1.1.1";
+            return kInternetPingTarget;
         case Dns:
             return "DNS";
         case InternetTcp:
-            return "Internet";
+            return "TCP 443";
+        case Dhcp:
+            return "DHCP";
         default:
             return "";
     }
 }
 
-void ConnectivityTester::set_step(Step step, StepState state, std::string value) {
+void ConnectivityTester::set_step(Step step, StepState state, std::string headline, std::string detail) {
     std::lock_guard<std::mutex> lock(mutex_);
-    report_.steps[step] = StepResult{state, std::move(value)};
+    report_.steps[step] = StepResult{state, std::move(headline), std::move(detail)};
     ++revision_;
 }
 
@@ -462,78 +469,125 @@ ConnectivityTester::StepResult ConnectivityTester::ping_series(const std::string
     }
 
     if (received == 0) {
-        return {StepState::Fail, last_error.empty() ? "no reply" : last_error};
+        return {StepState::Fail, last_error.empty() ? "no reply" : last_error, target};
     }
     const int loss = (kPingCount - received) * 100 / kPingCount;
-    std::array<char, 16> loss_text{};
-    std::snprintf(loss_text.data(), loss_text.size(), "%d%% loss", loss);
-    return {loss > 0 ? StepState::Warn : StepState::Ok,
-            format_ms(total_ms / received) + "  " + loss_text.data()};
+    std::array<char, 16> detail{};
+    std::snprintf(detail.data(), detail.size(), "%d%% loss", loss);
+    return {loss > 0 ? StepState::Warn : StepState::Ok, format_ms(total_ms / received), detail.data()};
+}
+
+ConnectivityTester::StepResult ConnectivityTester::check_dhcp(const std::string& interface_name) {
+    const auto probe = discover_dhcp_servers(interface_name, kDhcpWaitMs);
+    if (!probe.error.empty()) {
+        return {StepState::Fail, probe.error, interface_name};
+    }
+    const auto& offers = probe.offers;
+    if (offers.empty()) {
+        return {StepState::Fail, "none", "no server answered"};
+    }
+    if (offers.size() > 1) {
+        // Two servers on one segment: a rogue router or a misconfigured relay.
+        return {StepState::Warn, std::to_string(offers.size()) + " servers", offers[0].server + " + " + offers[1].server};
+    }
+    const auto& offer = offers.front();
+    std::string lease;
+    if (offer.lease_seconds >= 86400) {
+        lease = std::to_string(offer.lease_seconds / 86400) + "d";
+    }
+    else if (offer.lease_seconds >= 3600) {
+        lease = std::to_string(offer.lease_seconds / 3600) + "h";
+    }
+    else if (offer.lease_seconds > 0) {
+        lease = std::to_string(offer.lease_seconds / 60) + "m";
+    }
+    return {StepState::Ok, "1 server", lease.empty() ? offer.server : offer.server + " · " + lease};
 }
 
 ConnectivityTester::StepResult ConnectivityTester::check_dns_servers(const std::vector<std::string>& servers) {
     if (servers.empty()) {
-        return {StepState::Fail, "no DNS servers configured"};
+        return {StepState::Fail, "none", "no DNS servers configured"};
     }
 
-    // One entry per server, e.g. "10.0.1.1 12 ms   8.8.8.8 timeout".
+    // Headline: the fastest answer. Detail: how many answered, or which one did not.
     const size_t count = std::min(servers.size(), kMaxDnsServers);
     size_t answered = 0;
-    std::string summary;
+    double fastest_ms = 0.0;
+    std::string first_failure;
     for (size_t i = 0; i < count && !stop_requested_; ++i) {
         auto probe = query_dns_server(servers[i], kDnsTestHost, kDnsTimeoutMs);
         if (!probe.ok && probe.detail == "timeout" && !stop_requested_) {
             // UDP: one lost packet should not mark a server dead (resolvers retry too).
             probe = query_dns_server(servers[i], kDnsTestHost, kDnsTimeoutMs);
         }
-        if (!summary.empty()) {
-            summary += "   ";
-        }
-        summary += servers[i] + " " + (probe.ok ? format_ms(probe.ms) : probe.detail);
         if (probe.ok) {
+            fastest_ms = answered == 0 ? probe.ms : std::min(fastest_ms, probe.ms);
             ++answered;
         }
+        else if (first_failure.empty()) {
+            first_failure = servers[i] + " " + probe.detail;
+        }
     }
 
-    const StepState state = answered == count ? StepState::Ok
-                            : answered > 0    ? StepState::Warn
-                                              : StepState::Fail;
-    return {state, summary};
+    if (answered == 0) {
+        return {StepState::Fail, "no answer", first_failure};
+    }
+    const auto answered_text = std::to_string(answered) + " of " + std::to_string(count) + " servers";
+    if (answered < count) {
+        return {StepState::Warn, format_ms(fastest_ms), first_failure};
+    }
+    return {StepState::Ok, format_ms(fastest_ms), answered_text};
 }
 
-void ConnectivityTester::run(std::string gateway, std::vector<std::string> dns_servers) {
+void ConnectivityTester::run(std::string gateway, std::vector<std::string> dns_servers, std::string dhcp_interface) {
     if (gateway.empty()) {
-        set_step(GatewayPing, StepState::Skipped, "no default route");
+        set_step(GatewayPing, StepState::Skipped, "skipped", "no default route");
     }
     else {
-        set_step(GatewayPing, StepState::Running, "pinging " + gateway);
+        set_step(GatewayPing, StepState::Running, "...", "pinging " + gateway);
         auto result = ping_series(gateway);
-        set_step(GatewayPing, result.state, std::move(result.value));
+        set_step(GatewayPing, result.state, std::move(result.headline), std::move(result.detail));
     }
 
     if (!stop_requested_) {
-        set_step(InternetPing, StepState::Running, "pinging...");
+        set_step(InternetPing, StepState::Running, "...", std::string("pinging ") + kInternetPingTarget);
         auto result = ping_series(kInternetPingTarget);
-        set_step(InternetPing, result.state, std::move(result.value));
+        set_step(InternetPing, result.state, std::move(result.headline), std::move(result.detail));
     }
 
     if (!stop_requested_) {
-        set_step(Dns, StepState::Running, std::string("querying ") + kDnsTestHost);
+        set_step(Dns, StepState::Running, "...", std::string("resolving ") + kDnsTestHost);
         auto result = check_dns_servers(dns_servers);
-        set_step(Dns, result.state, std::move(result.value));
+        set_step(Dns, result.state, std::move(result.headline), std::move(result.detail));
     }
 
     if (!stop_requested_) {
-        set_step(InternetTcp, StepState::Running, "connecting...");
+        const auto target = std::string(kTcpTarget) + ":" + std::to_string(kTcpPort);
+        set_step(InternetTcp, StepState::Running, "...", "connecting to " + target);
         const auto probe = tcp_connect(kTcpTarget, kTcpPort, kTcpTimeoutMs);
-        set_step(InternetTcp,
-                 probe.ok ? StepState::Ok : StepState::Fail,
-                 probe.ok ? "online  " + format_ms(probe.ms) : probe.detail);
+        if (probe.ok) {
+            set_step(InternetTcp, StepState::Ok, format_ms(probe.ms), target + " open");
+        }
+        else {
+            set_step(InternetTcp, StepState::Fail, probe.detail, target);
+        }
+    }
+
+    if (!stop_requested_) {
+        if (dhcp_interface.empty()) {
+            set_step(Dhcp, StepState::Skipped, "skipped", "no interface");
+        }
+        else {
+            set_step(Dhcp, StepState::Running, "...", "asking on " + dhcp_interface);
+            auto result = check_dhcp(dhcp_interface);
+            set_step(Dhcp, result.state, std::move(result.headline), std::move(result.detail));
+        }
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
     report_.running = false;
     ++report_.runs;
+    report_.finished_at = std::chrono::steady_clock::now();
     ++revision_;
 }
 

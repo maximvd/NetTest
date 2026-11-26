@@ -9,154 +9,102 @@
 #include "asset_manager.h"
 #include "bindings.h"
 #include "screen_utils.h"
-#include "theme.h"
 
 #include <string>
-#include <utility>
+#include <vector>
 
 namespace screen {
 namespace {
 
+using bento::Tone;
+using platform::net::ConnectivityTester;
 using platform::net::InterfaceInfo;
 using platform::net::Neighbor;
 using platform::net::NeighborListener;
 
-constexpr int32_t kPadX = 8;
-constexpr int32_t kHeaderY = 3;
-constexpr int32_t kRowsY = 25;
-constexpr int32_t kRowPitch = 16;
-constexpr int32_t kColumnWidth = 152;
-constexpr int32_t kKeyWidth = 36;
-constexpr int32_t kInterfaceNameWidth = 90;
-constexpr int32_t kStateX = kPadX + kInterfaceNameWidth + 4;
-constexpr int32_t kStateWidth = 150;
-constexpr int32_t kIndexWidth = 40;
-constexpr int32_t kRightColumnX = kPadX + kColumnWidth + 4;
-
 constexpr const char* kNone = "-";
+constexpr int32_t kBadgeReserve = 54;
+constexpr int32_t kBarWidth = 5;
+constexpr int32_t kBarGap = 2;
+constexpr int32_t kBarMaxHeight = 20;
 
-using KeyValue = std::pair<std::string, std::string>;
-
-std::string or_none(const std::string& value) {
-    return value.empty() ? kNone : value;
-}
-
-std::string link_state_text(const InterfaceInfo& info) {
-    if (!info.up) {
-        return "DOWN";
-    }
-    if (!info.carrier) {
-        return info.wireless ? "NOT CONNECTED" : "NO CABLE";
-    }
-    if (info.wireless) {
-        return "WI-FI";
-    }
-    std::string text = "UP";
-    if (info.speed_mbps > 0) {
-        text += info.speed_mbps >= 1000 && info.speed_mbps % 1000 == 0
-                    ? "  " + std::to_string(info.speed_mbps / 1000) + "G"
-                    : "  " + std::to_string(info.speed_mbps) + "M";
-    }
-    if (info.duplex == "full") {
-        text += " FD";
-    }
-    else if (info.duplex == "half") {
-        text += " HD"; // half duplex usually means a negotiation problem: worth seeing
-    }
-    return text;
-}
-
-std::string ipv4_text(const InterfaceInfo& info) {
-    if (info.ipv4.empty()) {
-        return info.carrier ? "no address" : kNone;
-    }
-    return info.prefix_length >= 0 ? info.ipv4 + "/" + std::to_string(info.prefix_length) : info.ipv4;
-}
-
-std::string dns_text(const std::vector<std::string>& servers) {
-    if (servers.empty()) {
-        return kNone;
-    }
-    std::string text = servers.front();
-    if (servers.size() > 1) {
-        text += " +" + std::to_string(servers.size() - 1);
-    }
-    return text;
-}
-
-std::string age_text(const char* prefix, int32_t seconds) {
-    if (seconds < 0) {
-        return prefix;
-    }
-    if (seconds < 120) {
-        return std::string(prefix) + " " + std::to_string(seconds) + "s ago";
-    }
-    return std::string(prefix) + " " + std::to_string(seconds / 60) + "m ago";
-}
-
-std::string vlan_text(const Neighbor& neighbor) {
-    if (neighbor.vlan < 0) {
-        return neighbor.vlan_name.empty() ? kNone : neighbor.vlan_name;
-    }
-    const auto id = std::to_string(neighbor.vlan);
-    return neighbor.vlan_name.empty() ? id : id + " " + neighbor.vlan_name;
-}
-
-std::array<KeyValue, 5> wireless_rows(const InterfaceInfo& info) {
-    std::string signal = kNone;
-    if (info.has_signal) {
-        signal = std::to_string(info.signal_dbm) + " dBm  " +
-                 std::to_string(platform::net::signal_quality_percent(info.signal_dbm)) + "%";
-    }
-    return {{
-        {"SSID", or_none(info.ssid)},
-        {"SIG", signal},
-        {"MTU", info.mtu > 0 ? std::to_string(info.mtu) : kNone},
-        {"", ""},
-        {"", ""},
-    }};
-}
-
-std::array<KeyValue, 5> switch_rows(const InterfaceInfo& info, const NeighborListener::Status& status) {
-    using State = NeighborListener::State;
-    if (!info.carrier) {
-        return {{{"SW", kNone}, {"PORT", kNone}, {"VLAN", kNone}, {"", ""}, {"LLDP", "no link"}}};
-    }
-    switch (status.state) {
-        case State::Found: {
-            const auto& neighbor = *status.neighbor;
-            const char* protocol = neighbor.protocol == Neighbor::Protocol::Lldp ? "LLDP" : "CDP";
-            // Port ID is often a MAC or ifIndex; the description is then the readable name.
-            std::string port = or_none(neighbor.port_id);
-            if (!neighbor.port_description.empty() && neighbor.port_description != neighbor.port_id) {
-                port += "  " + neighbor.port_description;
-            }
-            return {{
-                {"SW", or_none(neighbor.system_name.empty() ? neighbor.chassis_id : neighbor.system_name)},
-                {"PORT", port},
-                {"VLAN", vlan_text(neighbor)},
-                {"MGMT", or_none(neighbor.management_ip)},
-                {"SEEN", age_text(protocol, status.seconds_since_update)},
-            }};
+std::string join(const std::vector<std::string>& parts) {
+    std::string text;
+    for (const auto& part : parts) {
+        if (part.empty()) {
+            continue;
         }
-        case State::Listening:
-            return {{
-                {"SW", "listening..."},
-                {"PORT", kNone},
-                {"VLAN", kNone},
-                {"", ""},
-                {"LLDP", status.seconds_since_update >= 0
-                             ? "waiting " + std::to_string(status.seconds_since_update) + "s"
-                             : "waiting"},
-            }};
-        case State::Unsupported:
-            return {{{"SW", "n/a"}, {"PORT", kNone}, {"VLAN", kNone}, {"", ""}, {"LLDP", "device only"}}};
-        case State::Error:
-            return {{{"SW", "error"}, {"PORT", kNone}, {"VLAN", kNone}, {"", ""}, {"LLDP", status.error}}};
-        case State::Idle:
-        default:
-            return {{{"SW", kNone}, {"PORT", kNone}, {"VLAN", kNone}, {"", ""}, {"LLDP", "idle"}}};
+        if (!text.empty()) {
+            text += " · ";
+        }
+        text += part;
     }
+    return text;
+}
+
+std::string age_text(int32_t seconds) {
+    if (seconds < 0) {
+        return "";
+    }
+    return seconds < 120 ? std::to_string(seconds) + "s ago" : std::to_string(seconds / 60) + "m ago";
+}
+
+std::string speed_text(int32_t mbps) {
+    if (mbps <= 0) {
+        return "UP";
+    }
+    if (mbps >= 1000 && mbps % 1000 == 0) {
+        return std::to_string(mbps / 1000) + "G";
+    }
+    if (mbps >= 1000 && mbps % 100 == 0) {
+        return std::to_string(mbps / 1000) + "." + std::to_string(mbps % 1000 / 100) + "G";
+    }
+    return std::to_string(mbps) + "M";
+}
+
+bool is_link_local_ipv4(const std::string& address) {
+    return address.rfind("169.254.", 0) == 0;
+}
+
+std::string vlan_badge_text(const Neighbor& neighbor) {
+    return neighbor.vlan >= 0 ? "VLAN " + std::to_string(neighbor.vlan) : "";
+}
+
+// Shown under the port: the switch, then whatever the port is called.
+std::string switch_detail(const Neighbor& neighbor) {
+    const auto& name = neighbor.system_name.empty() ? neighbor.chassis_id : neighbor.system_name;
+    std::string extra;
+    if (!neighbor.port_description.empty() && neighbor.port_description != neighbor.port_id) {
+        extra = neighbor.port_description;
+    }
+    else if (neighbor.vlan < 0 && !neighbor.vlan_name.empty()) {
+        extra = neighbor.vlan_name;
+    }
+    else {
+        extra = neighbor.management_ip;
+    }
+    return join({name, extra});
+}
+
+// The PoE power the switch gives this port, e.g. "PoE 15.4 W" or "PoE class 3".
+std::string poe_text(const Neighbor& neighbor) {
+    if (neighbor.poe_milliwatts > 0) {
+        const auto tenths = (neighbor.poe_milliwatts + 50) / 100;
+        const auto watts = std::to_string(tenths / 10) + (tenths % 10 ? "." + std::to_string(tenths % 10) : "");
+        return "PoE " + watts + " W";
+    }
+    return neighbor.poe_class >= 0 ? "PoE class " + std::to_string(neighbor.poe_class) : "";
+}
+
+// The last check's figure for a step, if the checks have run and it passed.
+std::string last_check(const ConnectivityTester::Report& report, ConnectivityTester::Step step) {
+    if (report.runs == 0 || report.running) {
+        return "";
+    }
+    const auto& result = report.steps[step];
+    const bool usable = result.state == ConnectivityTester::StepState::Ok ||
+                        result.state == ConnectivityTester::StepState::Warn;
+    return usable ? result.headline : "";
 }
 
 } // namespace
@@ -169,118 +117,198 @@ LinkScreen::LinkScreen(viewmodel::BaseViewModel& view_model,
 }
 
 void LinkScreen::build_content(lv_obj_t* content) {
-    const lv_font_t* header_font = assets().load_standard_font(14);
-    const lv_font_t* state_font = assets().load_standard_font(12);
-    const lv_font_t* key_font = assets().load_standard_font(11);
-    const lv_font_t* value_font = assets().load_standard_font(12, app::StandardFontWeight::Regular);
-    header_font = header_font ? header_font : &lv_font_montserrat_14;
-    state_font = state_font ? state_font : &lv_font_montserrat_12;
-    key_font = key_font ? key_font : &lv_font_montserrat_12;
-    value_font = value_font ? value_font : &lv_font_montserrat_12;
+    const auto fonts = bento::Fonts::load(assets());
 
-    auto* dark_mode = view_model().dark_mode_subject();
+    main_ = bento::create_tile(content, fonts, {0, 0, 2}, bento::ValueSize::Large);
+    side_ = bento::create_tile(content, fonts, {2, 0}, bento::ValueSize::Large);
+    address_ = bento::create_tile(content, fonts, {0, 1}, bento::ValueSize::Medium);
+    gateway_ = bento::create_tile(content, fonts, {1, 1}, bento::ValueSize::Medium);
+    dns_ = bento::create_tile(content, fonts, {2, 1}, bento::ValueSize::Medium);
 
-    interface_label_ = util::create_label(content, header_font, kPadX, kHeaderY, kInterfaceNameWidth);
-    reactive::bind_theme(interface_label_, dark_mode, reactive::ThemeRole::Text);
-    state_label_ = util::create_label(content, state_font, kStateX, kHeaderY + 2, kStateWidth);
-    index_label_ =
-        util::create_label(content, state_font, view::kScreenWidth - kPadX - kIndexWidth, kHeaderY + 2, kIndexWidth);
-    lv_obj_set_style_text_align(index_label_, LV_TEXT_ALIGN_RIGHT, 0);
-
-    const auto build_column = [&](std::array<Row, kRows>& rows, int32_t x) {
-        for (size_t i = 0; i < rows.size(); ++i) {
-            const auto y = kRowsY + static_cast<int32_t>(i) * kRowPitch;
-            rows[i].key = util::create_label(content, key_font, x, y + 1, kKeyWidth, LV_LABEL_LONG_MODE_CLIP);
-            rows[i].value = util::create_label(content,
-                                               value_font,
-                                               x + kKeyWidth,
-                                               y,
-                                               kColumnWidth - kKeyWidth,
-                                               LV_LABEL_LONG_MODE_SCROLL_CIRCULAR);
-            reactive::bind_theme(rows[i].value, dark_mode, reactive::ThemeRole::Text);
+    if (kind_ == viewmodel::LinkKind::Wired) {
+        vlan_badge_ = bento::create_badge(main_, fonts);
+    }
+    else {
+        // Signal bars in the network tile's top-right corner, short to tall.
+        main_.reserve_right(kSignalBars * (kBarWidth + kBarGap) + 4);
+        for (size_t i = 0; i < signal_bars_.size(); ++i) {
+            auto* bar = lv_obj_create(main_.box);
+            lv_obj_remove_style_all(bar);
+            const auto height = kBarMaxHeight * static_cast<int32_t>(i + 1) / static_cast<int32_t>(kSignalBars);
+            lv_obj_set_size(bar, kBarWidth, height);
+            lv_obj_set_style_radius(bar, 1, 0);
+            lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
+            const auto x_from_right = static_cast<int32_t>(kSignalBars - 1 - i) * (kBarWidth + kBarGap) + 6;
+            lv_obj_align(bar, LV_ALIGN_TOP_RIGHT, -x_from_right, 6 + kBarMaxHeight - height);
+            signal_bars_[i] = bar;
         }
-    };
-    build_column(left_, kPadX);
-    build_column(right_, kRightColumnX);
+    }
 
-    // A thin divider between the address and switch columns.
-    auto* divider = lv_obj_create(content);
-    lv_obj_remove_style_all(divider);
-    lv_obj_set_size(divider, 1, kRows * kRowPitch - 4);
-    lv_obj_set_pos(divider, kRightColumnX - 4, kRowsY + 2);
-    lv_obj_set_style_bg_opa(divider, LV_OPA_COVER, 0);
-    lv_obj_set_style_bg_color(divider, view::palette(view_model().is_dark_mode()).border, 0);
-    reactive::observe_obj(divider, dark_mode, [](lv_observer_t* observer, lv_subject_t* subject) {
-        lv_obj_set_style_bg_color(lv_observer_get_target_obj(observer),
-                                  view::palette(lv_subject_get_int(subject) != 0).border,
-                                  0);
-    });
+    empty_label_ = lv_label_create(content);
+    lv_obj_set_style_text_font(empty_label_, fonts.value_medium, 0);
+    lv_label_set_text(empty_label_, kind_ == viewmodel::LinkKind::Wired ? "No Ethernet port" : "No Wi-Fi adapter");
+    lv_obj_center(empty_label_);
 
     reactive::observe_obj(content, view_model().network().link_revision_subject(), link_changed_cb, this);
-    reactive::observe_obj(content, dark_mode, link_changed_cb, this);
+    reactive::observe_obj(content, view_model().network().tests_revision_subject(), link_changed_cb, this);
+    reactive::observe_obj(content, view_model().dark_mode_subject(), link_changed_cb, this);
+}
+
+void LinkScreen::show_tiles(bool visible) {
+    for (const auto* tile : {&main_, &side_, &address_, &gateway_, &dns_}) {
+        util::set_visible(tile->box, visible);
+    }
+    util::set_visible(empty_label_, !visible);
 }
 
 void LinkScreen::refresh() {
-    auto& network = view_model().network();
-    const auto& snapshot = network.snapshot();
-    const auto* info = network.selected_interface(kind_);
     const auto colors = view::palette(view_model().is_dark_mode());
+    const auto* info = view_model().network().selected_interface(kind_);
 
+    lv_obj_set_style_text_color(empty_label_, colors.text_muted, 0);
+    show_tiles(info != nullptr);
     if (!info) {
-        lv_obj_set_width(interface_label_, view::kScreenWidth - 2 * kPadX);
-        util::set_text(interface_label_,
-                       kind_ == viewmodel::LinkKind::Wired ? "No Ethernet port" : "No Wi-Fi adapter");
-        util::set_text(state_label_, "");
-        util::set_text(index_label_, "0/0");
-        lv_obj_set_style_text_color(index_label_, colors.text_disabled, 0);
-        for (auto* column : {&left_, &right_}) {
-            for (auto& row : *column) {
-                util::set_visible(row.key, false);
-                util::set_visible(row.value, false);
-            }
-        }
         return;
     }
 
-    lv_obj_set_width(interface_label_, kInterfaceNameWidth);
-    util::set_text(interface_label_, info->name);
-    util::set_text(state_label_, link_state_text(*info));
-    lv_obj_set_style_text_color(state_label_,
-                                !info->up        ? colors.text_disabled
-                                : info->carrier  ? colors.success
-                                                 : colors.error,
-                                0);
+    if (kind_ == viewmodel::LinkKind::Wired) {
+        refresh_wired(*info, colors);
+    }
+    else {
+        refresh_wireless(*info, colors);
+    }
+    refresh_addresses(*info, colors);
+}
 
-    // Position among this page's interfaces; up/down arrows move through them.
-    const auto count = network.interfaces(kind_).size();
-    util::set_text(index_label_, std::to_string(network.selected_position(kind_) + 1) + "/" + std::to_string(count));
-    lv_obj_set_style_text_color(index_label_, colors.text_disabled, 0);
+void LinkScreen::refresh_wired(const InterfaceInfo& info, const view::ThemePalette& colors) {
+    using State = NeighborListener::State;
 
-    const bool is_gateway_interface = info->name == snapshot.gateway_interface;
-    const std::array<KeyValue, kRows> left_rows = {{
-        {"IP", ipv4_text(*info)},
-        {"GW", is_gateway_interface ? or_none(snapshot.gateway) : kNone},
-        {"DNS", dns_text(snapshot.dns_servers)},
-        {"MAC", or_none(info->mac)},
-        {"IPv6", or_none(info->ipv6)},
-    }};
-    const auto right_rows = kind_ == viewmodel::LinkKind::Wireless ? wireless_rows(*info)
-                                                                    : switch_rows(*info, network.neighbor_status());
-
-    const auto apply = [&](std::array<Row, kRows>& rows, const std::array<KeyValue, kRows>& values) {
-        for (size_t i = 0; i < rows.size(); ++i) {
-            const bool visible = !values[i].first.empty();
-            util::set_visible(rows[i].key, visible);
-            util::set_visible(rows[i].value, visible);
-            if (visible) {
-                util::set_text(rows[i].key, values[i].first);
-                util::set_text(rows[i].value, values[i].second);
-                lv_obj_set_style_text_color(rows[i].key, colors.primary, 0);
-            }
+    // Link speed, or why there is no link.
+    if (!info.up) {
+        side_.set("LINK", "Down", Tone::Muted, "interface disabled", colors);
+    }
+    else if (!info.carrier) {
+        side_.set("LINK", "No cable", Tone::Error, "plug in a cable", colors);
+    }
+    else {
+        // Drops since NetTest started point at a bad cable or port; otherwise show the MTU.
+        const auto drops = view_model().network().link_drops(info);
+        const std::string duplex = info.duplex == "half" ? "HALF duplex" : info.duplex;
+        std::string extra = info.mtu > 0 ? "MTU " + std::to_string(info.mtu) : "";
+        if (drops > 0) {
+            extra = std::to_string(drops) + (drops == 1 ? " drop" : " drops");
         }
-    };
-    apply(left_, left_rows);
-    apply(right_, right_rows);
+        side_.set("LINK",
+                  speed_text(info.speed_mbps),
+                  info.duplex == "half" || drops > 0 ? Tone::Warning : Tone::Accent,
+                  join({duplex, extra}),
+                  colors);
+    }
+
+    // The switch and port this jack leads to.
+    const auto status = view_model().network().neighbor_status();
+    std::string badge;
+    if (!info.carrier) {
+        main_.set("SWITCH", "No link", Tone::Muted, "switch shows up once linked", colors);
+    }
+    else if (status.state == State::Found && status.neighbor) {
+        const auto& neighbor = *status.neighbor;
+        const char* protocol = neighbor.protocol == Neighbor::Protocol::Lldp ? "LLDP" : "CDP";
+        main_.set(join({"SWITCH", protocol, age_text(status.seconds_since_update), poe_text(neighbor)}),
+                  neighbor.port_id.empty() ? kNone : neighbor.port_id,
+                  Tone::Normal,
+                  switch_detail(neighbor),
+                  colors);
+        badge = vlan_badge_text(neighbor);
+    }
+    else if (status.state == State::Listening) {
+        const auto waited = status.seconds_since_update >= 0 ? std::to_string(status.seconds_since_update) + "s" : "";
+        main_.set("SWITCH", "Listening...", Tone::Muted, join({"waiting for LLDP/CDP", waited}), colors);
+    }
+    else if (status.state == State::Unsupported) {
+        main_.set("SWITCH", "n/a", Tone::Muted, "discovery runs on the device", colors);
+    }
+    else if (status.state == State::Error) {
+        main_.set("SWITCH", "Error", Tone::Error, status.error, colors);
+    }
+    else {
+        main_.set("SWITCH", kNone, Tone::Muted, "", colors);
+    }
+
+    bento::set_badge(vlan_badge_, badge, colors.primary, colors.background);
+    main_.reserve_right(badge.empty() ? 0 : kBadgeReserve);
+}
+
+void LinkScreen::refresh_wireless(const InterfaceInfo& info, const view::ThemePalette& colors) {
+    const int32_t quality = info.has_signal ? platform::net::signal_quality_percent(info.signal_dbm) : -1;
+    const Tone quality_tone = quality >= 50 ? Tone::Accent : quality >= 25 ? Tone::Warning : Tone::Error;
+
+    if (!info.up) {
+        main_.set("NETWORK", "Wi-Fi off", Tone::Muted, "interface disabled", colors);
+    }
+    else if (!info.carrier || info.ssid.empty()) {
+        main_.set("NETWORK", "Not connected", Tone::Muted, "", colors);
+    }
+    else {
+        main_.set("NETWORK", info.ssid, Tone::Normal, join({"Wi-Fi", info.mtu > 0 ? "MTU " + std::to_string(info.mtu) : ""}),
+                  colors);
+    }
+
+    if (quality < 0) {
+        side_.set("SIGNAL", kNone, Tone::Muted, "", colors);
+    }
+    else {
+        side_.set("SIGNAL", std::to_string(quality) + "%", quality_tone, std::to_string(info.signal_dbm) + " dBm", colors);
+    }
+
+    // One bar per quarter of signal quality.
+    const int32_t lit = quality < 0 ? 0 : (quality + 24) / 25;
+    for (size_t i = 0; i < signal_bars_.size(); ++i) {
+        const bool on = static_cast<int32_t>(i) < lit;
+        lv_obj_set_style_bg_color(signal_bars_[i], on ? bento::tone_color(quality_tone, colors) : colors.border, 0);
+    }
+}
+
+void LinkScreen::refresh_addresses(const InterfaceInfo& info, const view::ThemePalette& colors) {
+    auto& network = view_model().network();
+    const auto& snapshot = network.snapshot();
+    const auto report = network.test_report();
+
+    // Address. A 169.254.x.x address means nothing handed one out.
+    const std::string prefix = info.prefix_length >= 0 ? "/" + std::to_string(info.prefix_length) : "";
+    if (info.ipv4.empty()) {
+        address_.set("ADDRESS",
+                     info.carrier ? "None" : kNone,
+                     info.carrier ? Tone::Error : Tone::Muted,
+                     info.carrier ? "no IPv4 address" : "",
+                     colors);
+    }
+    else if (is_link_local_ipv4(info.ipv4)) {
+        address_.set("ADDRESS", info.ipv4, Tone::Error, "self-assigned: no DHCP", colors);
+    }
+    else {
+        address_.set("ADDRESS", info.ipv4, Tone::Normal, prefix.empty() ? "" : "subnet " + prefix, colors);
+    }
+
+    // Gateway: only meaningful on the interface that carries the default route.
+    if (info.name != snapshot.gateway_interface || snapshot.gateway.empty()) {
+        gateway_.set("GATEWAY", kNone, Tone::Muted, snapshot.gateway.empty() ? "no default route" : "not default route",
+                     colors);
+    }
+    else {
+        const auto ping = last_check(report, ConnectivityTester::GatewayPing);
+        gateway_.set("GATEWAY", snapshot.gateway, Tone::Normal, ping.empty() ? "default route" : ping + " ping", colors);
+    }
+
+    // DNS servers are system-wide; show the first and how many more there are.
+    const auto& servers = snapshot.dns_servers;
+    if (servers.empty()) {
+        dns_.set("DNS", kNone, Tone::Muted, "none configured", colors);
+    }
+    else {
+        const auto more = servers.size() > 1 ? "+" + std::to_string(servers.size() - 1) + " more" : "";
+        dns_.set("DNS", servers.front(), Tone::Normal, join({last_check(report, ConnectivityTester::Dns), more}), colors);
+    }
 }
 
 void LinkScreen::link_changed_cb(lv_observer_t* observer, lv_subject_t*) {

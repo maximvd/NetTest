@@ -20,8 +20,9 @@ class AssetManager;
 namespace view::widgets {
 
 // Bottom bar with five button slots, triggered by keys 4..8 (left to right):
-// Ethernet page, Wi-Fi page, Tests page, "run checks" (Tests page only) and
-// the light/dark toggle. The current page's icon is drawn in the accent colour.
+// Ethernet page, Wi-Fi page, Tests page, a page action (next interface on the
+// link pages, run checks on Tests) and the light/dark toggle. The current
+// page's icon is drawn in the accent colour.
 class NavBar : public BaseWidgets {
 public:
     NavBar(lv_obj_t* parent, viewmodel::BaseViewModel& view_model, app::AssetManager& assets);
@@ -30,7 +31,7 @@ public:
     void build() override;
 
 private:
-    enum class Action { None, ShowEthernet, ShowWifi, ShowTests, RunTests, ToggleTheme };
+    enum class Action { None, ShowEthernet, ShowWifi, ShowTests, NextInterface, RunTests, ToggleTheme };
 
     static constexpr size_t kButtonCount = 5;
 
@@ -47,6 +48,7 @@ private:
     std::array<Action, kButtonCount> actions_{};
     lv_observer_t* page_observer_{nullptr};
     lv_observer_t* theme_observer_{nullptr};
+    lv_observer_t* link_observer_{nullptr}; // interface count enables "next interface"
 };
 
 } // namespace view::widgets

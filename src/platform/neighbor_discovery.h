@@ -31,6 +31,8 @@ struct Neighbor {
     std::string platform;      // CDP platform / first line of LLDP System Description
     int32_t vlan{-1};          // native / port VLAN id, -1 when not advertised
     std::string vlan_name;     // LLDP 802.1 VLAN Name for that VLAN, if advertised
+    int32_t poe_class{-1};     // PoE power class 0-4 (802.3 Power via MDI), -1 when not advertised
+    int32_t poe_milliwatts{-1}; // power the switch allots this port, -1 when not advertised
     int32_t ttl_seconds{-1};
 };
 

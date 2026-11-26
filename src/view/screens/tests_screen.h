@@ -7,31 +7,40 @@
 #pragma once
 
 #include "base_screen.h"
+#include "bento.h"
 #include "net_probe.h"
 
 #include <array>
 
 namespace screen {
 
-// Ping / DNS / internet checks: one row per step with a status dot, the step
-// name and its result, plus a one-line summary.
+// Connectivity checks as bento tiles: a wide verdict tile, then one tile per
+// check (DHCP servers, gateway ping, 1.1.1.1, DNS) with its figure and detail.
+// The TCP 443 check has no tile: it backs up the 1.1.1.1 tile when ping is
+// blocked and decides whether the verdict says "Online".
 class TestsScreen : public BaseScreen {
 public:
     TestsScreen(viewmodel::BaseViewModel& view_model, app::AssetManager& assets);
 
 private:
-    struct Row {
-        lv_obj_t* dot{nullptr};
-        lv_obj_t* name{nullptr};
-        lv_obj_t* value{nullptr};
+    using Tester = platform::net::ConnectivityTester;
+
+    struct StepTile {
+        Tester::Step step;
+        bento::Tile tile;
     };
 
     void build_content(lv_obj_t* content) override;
     void refresh();
     static void tests_changed_cb(lv_observer_t* observer, lv_subject_t* subject);
 
-    std::array<Row, platform::net::ConnectivityTester::StepCount> rows_{};
-    lv_obj_t* summary_label_{nullptr};
+    bento::Tile verdict_;
+    std::array<StepTile, 4> steps_{{
+        {Tester::Dhcp, {}},
+        {Tester::GatewayPing, {}},
+        {Tester::InternetPing, {}},
+        {Tester::Dns, {}},
+    }};
 };
 
 } // namespace screen

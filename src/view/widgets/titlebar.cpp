@@ -101,8 +101,8 @@ void TitleBar::build() {
     lv_label_bind_text(title, view_model_.title_subject(), nullptr);
     lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
     lv_obj_set_width(title, 142);
-    const lv_font_t* title_font = assets_.load_standard_font(14);
-    lv_obj_set_style_text_font(title, title_font ? title_font : &lv_font_montserrat_14, 0);
+    const lv_font_t* title_font = assets_.load_standard_font(12);
+    lv_obj_set_style_text_font(title, title_font ? title_font : &lv_font_montserrat_12, 0);
     lv_obj_align(title, LV_ALIGN_LEFT_MID, 8, 0);
     reactive::bind_theme(title, view_model_.dark_mode_subject(), reactive::ThemeRole::Text);
 
@@ -115,25 +115,25 @@ void TitleBar::build() {
     lv_obj_set_style_pad_column(status, 3, 0);
     lv_obj_clear_flag(status, LV_OBJ_FLAG_SCROLLABLE);
 
-    const lv_font_t* icon_font = assets_.load_font("Phosphor-Fill.ttf", 16);
+    const lv_font_t* icon_font = assets_.load_font("Phosphor-Fill.ttf", 13);
     if (!icon_font) {
         icon_font = &lv_font_montserrat_14;
     }
     const lv_font_t* status_font =
-        assets_.load_standard_font(14, app::StandardFontWeight::Regular);
+        assets_.load_standard_font(12, app::StandardFontWeight::Regular);
     if (!status_font) {
-        status_font = &lv_font_montserrat_14;
+        status_font = &lv_font_montserrat_12;
     }
     wifi_label_ = lv_label_create(status);
-    configure_label(wifi_label_, view_model_.dark_mode_subject(), icon_font, 18);
+    configure_label(wifi_label_, view_model_.dark_mode_subject(), icon_font, 16);
     ethernet_label_ = lv_label_create(status);
-    configure_label(ethernet_label_, view_model_.dark_mode_subject(), icon_font, 18);
+    configure_label(ethernet_label_, view_model_.dark_mode_subject(), icon_font, 16);
     battery_icon_label_ = lv_label_create(status);
-    configure_label(battery_icon_label_, view_model_.dark_mode_subject(), icon_font, 18);
+    configure_label(battery_icon_label_, view_model_.dark_mode_subject(), icon_font, 16);
     battery_percent_label_ = lv_label_create(status);
-    configure_label(battery_percent_label_, view_model_.dark_mode_subject(), status_font, 40);
+    configure_label(battery_percent_label_, view_model_.dark_mode_subject(), status_font, 34);
     time_label_ = lv_label_create(status);
-    configure_label(time_label_, view_model_.dark_mode_subject(), status_font, 42);
+    configure_label(time_label_, view_model_.dark_mode_subject(), status_font, 36);
 
     refresh_time();
     refresh_device_status();
