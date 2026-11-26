@@ -50,6 +50,59 @@ lv_subject_t* BaseViewModel::quit_requested_subject() {
     return quit_requested_subject_.native();
 }
 
+lv_subject_t* BaseViewModel::focused_tile_subject() {
+    return focused_tile_subject_.native();
+}
+
+lv_subject_t* BaseViewModel::detail_open_subject() {
+    return detail_open_subject_.native();
+}
+
+int BaseViewModel::focused_tile() const {
+    return focused_tile_subject_.value();
+}
+
+bool BaseViewModel::is_detail_open() const {
+    return detail_open_subject_.value();
+}
+
+void BaseViewModel::move_focus(Direction direction) {
+    // Tiles: 0 = wide top-left (two columns), 1 = top-right, 2 3 4 = bottom row.
+    constexpr int kLeft[] = {0, 0, 2, 2, 3};
+    constexpr int kRight[] = {1, 1, 3, 4, 4};
+    constexpr int kUp[] = {0, 1, 0, 0, 1};
+    constexpr int kDown[] = {2, 4, 2, 3, 4};
+    const int current = focused_tile();
+    if (current < 0) {
+        focused_tile_subject_.set(0);
+        return;
+    }
+    const int* table = direction == Direction::Left    ? kLeft
+                       : direction == Direction::Right ? kRight
+                       : direction == Direction::Up    ? kUp
+                                                       : kDown;
+    focused_tile_subject_.set(table[current]);
+}
+
+void BaseViewModel::open_detail() {
+    if (focused_tile() < 0) {
+        focused_tile_subject_.set(0);
+    }
+    detail_open_subject_.set(true);
+}
+
+bool BaseViewModel::close_detail_or_focus() {
+    if (is_detail_open()) {
+        detail_open_subject_.set(false);
+        return true;
+    }
+    if (focused_tile() >= 0) {
+        focused_tile_subject_.set(-1);
+        return true;
+    }
+    return false;
+}
+
 bool BaseViewModel::is_dark_mode() const {
     return model_.dark_mode();
 }
@@ -129,6 +182,11 @@ void BaseViewModel::link_changed_cb(lv_observer_t* observer, lv_subject_t*) {
 }
 
 void BaseViewModel::publish_all() {
+    if (page_to_int(model_.current_page()) != current_page_subject_.value()) {
+        // A new page starts without a ring or an open panel.
+        detail_open_subject_.set(false);
+        focused_tile_subject_.set(-1);
+    }
     title_subject_.set(page_title().c_str());
     dark_mode_subject_.set(model_.dark_mode());
     current_page_subject_.set(page_to_int(model_.current_page()));

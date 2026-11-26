@@ -6,8 +6,6 @@
 
 #include "net_probe.h"
 
-#include "dhcp_probe.h"
-
 #include <algorithm>
 #include <array>
 #include <cerrno>
@@ -403,6 +401,9 @@ void ConnectivityTester::start(const std::string& gateway,
         for (auto& step : report_.steps) {
             step = StepResult{};
         }
+        report_.dhcp_offers.clear();
+        report_.dhcp_interface.clear();
+        report_.dns_results.clear();
         ++revision_;
     }
     // The previous run has finished (running == false), so this join is immediate.
@@ -479,6 +480,11 @@ ConnectivityTester::StepResult ConnectivityTester::ping_series(const std::string
 
 ConnectivityTester::StepResult ConnectivityTester::check_dhcp(const std::string& interface_name) {
     const auto probe = discover_dhcp_servers(interface_name, kDhcpWaitMs);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        report_.dhcp_offers = probe.offers;
+        report_.dhcp_interface = interface_name;
+    }
     if (!probe.error.empty()) {
         return {StepState::Fail, probe.error, interface_name};
     }
@@ -519,6 +525,10 @@ ConnectivityTester::StepResult ConnectivityTester::check_dns_servers(const std::
         if (!probe.ok && probe.detail == "timeout" && !stop_requested_) {
             // UDP: one lost packet should not mark a server dead (resolvers retry too).
             probe = query_dns_server(servers[i], kDnsTestHost, kDnsTimeoutMs);
+        }
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            report_.dns_results.emplace_back(servers[i], probe.ok ? format_ms(probe.ms) : probe.detail);
         }
         if (probe.ok) {
             fastest_ms = answered == 0 ? probe.ms : std::min(fastest_ms, probe.ms);

@@ -24,16 +24,17 @@ struct HelpRow {
 constexpr std::array<HelpRow, 5> kLinkRows = {{
     {"HOLD ESC", "Exit"},
     {"4 / 5 / 6", "Ethernet / Wi-Fi / Tests"},
-    {"7 / UP / DOWN", "Next / previous interface"},
+    {"7", "Next interface"},
+    {"ARROWS / OK", "Pick a tile / open it"},
     {"8", "Light / dark"},
 }};
 
 constexpr std::array<HelpRow, 5> kTestsRows = {{
     {"ESC", "Back"},
     {"4 / 5 / 6", "Ethernet / Wi-Fi / Tests"},
-    {"7", "Run checks again"},
+    {"7", "Run the checks again"},
+    {"ARROWS / OK", "Pick a tile / open it"},
     {"8", "Light / dark"},
-    {"CHECKS", "DHCP, gateway, 1.1.1.1, DNS"},
 }};
 
 } // namespace

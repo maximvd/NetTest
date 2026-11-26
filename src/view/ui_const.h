@@ -13,11 +13,6 @@
 namespace view {
 
 // Phosphor-Fill.ttf glyphs (see assets/fonts/LICENSE.txt)
-constexpr const char* ICON_MOON               = "\uE330";
-constexpr const char* ICON_SUN                = "\uE474";
-constexpr const char* ICON_HEARTBEAT          = "\uE2AC";
-constexpr const char* ICON_PLAY               = "\uE3D0";
-constexpr const char* ICON_ARROWS_DOWN_UP     = "\uE098";
 constexpr const char* ICON_WIFI_NONE          = "\uE4F0";
 constexpr const char* ICON_WIFI_LOW           = "\uE4EC";
 constexpr const char* ICON_WIFI_MEDIUM        = "\uE4EE";
@@ -51,7 +46,7 @@ struct PaletteHex {
 // "Bento" palette: a flat page with rounded tiles, plain text and one accent
 // colour per state. Text colours keep 4.5:1 contrast on their tiles.
 constexpr PaletteHex kDark{
-    0x0e1114, 0x1a1f25, 0x1a1f25, 0x2a313a, 0xeef1f4, 0xc3cad1, 0x9aa4ae,
+    0x0e1114, 0x1a1f25, 0x1a1f25, 0x3a434e, 0xeef1f4, 0xdde3e8, 0xaab3bc,
     0x5b6570, 0x4ade80, 0x60a5fa, 0x4ade80, 0xfbbf24, 0xf87171,
 };
 

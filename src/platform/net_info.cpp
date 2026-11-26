@@ -344,4 +344,18 @@ int32_t signal_quality_percent(int32_t signal_dbm) {
     return std::clamp((signal_dbm + 90) * 100 / 60, 0, 100);
 }
 
+std::string neighbor_mac(const std::string& ipv4) {
+    std::ifstream arp("/proc/net/arp");
+    std::string line;
+    std::getline(arp, line); // header
+    while (std::getline(arp, line)) {
+        std::istringstream fields(line);
+        std::string address, hw_type, flags, mac;
+        if (fields >> address >> hw_type >> flags >> mac && address == ipv4 && mac != "00:00:00:00:00:00") {
+            return mac;
+        }
+    }
+    return "";
+}
+
 } // namespace platform::net

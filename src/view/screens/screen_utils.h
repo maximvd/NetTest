@@ -8,7 +8,9 @@
 
 #include "lvgl.h"
 
+#include <cstdint>
 #include <cstring>
+#include <initializer_list>
 #include <string>
 
 namespace screen::util {
@@ -47,6 +49,29 @@ inline lv_obj_t* create_label(lv_obj_t* parent,
     lv_label_set_long_mode(label, long_mode);
     lv_obj_set_pos(label, x, y);
     return label;
+}
+
+// Joins the non-empty parts with " · ".
+inline std::string join(std::initializer_list<std::string> parts) {
+    std::string text;
+    for (const auto& part : parts) {
+        if (part.empty()) {
+            continue;
+        }
+        if (!text.empty()) {
+            text += " · ";
+        }
+        text += part;
+    }
+    return text;
+}
+
+// "13s ago" / "4m ago"; "" for a negative age.
+inline std::string age_text(int64_t seconds) {
+    if (seconds < 0) {
+        return "";
+    }
+    return seconds < 120 ? std::to_string(seconds) + "s ago" : std::to_string(seconds / 60) + "m ago";
 }
 
 } // namespace screen::util

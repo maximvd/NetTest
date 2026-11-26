@@ -45,4 +45,7 @@ NetSnapshot read_snapshot();
 // Converts a Wi-Fi RSSI in dBm into a rough 0-100 quality percentage.
 int32_t signal_quality_percent(int32_t signal_dbm);
 
+// MAC address the kernel has learned for an IPv4 neighbor (/proc/net/arp), or "".
+std::string neighbor_mac(const std::string& ipv4);
+
 } // namespace platform::net

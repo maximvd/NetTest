@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "dhcp_probe.h"
+
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -13,6 +15,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace platform::net {
@@ -63,6 +66,10 @@ public:
         bool running{false};
         uint32_t runs{0};
         std::chrono::steady_clock::time_point finished_at{}; // end of the last completed run
+        std::vector<DhcpOffer> dhcp_offers; // one per server that answered
+        std::string dhcp_interface;
+        // Per DNS server: {server, "4.2 ms" or the error}.
+        std::vector<std::pair<std::string, std::string>> dns_results;
     };
 
     static constexpr const char* kInternetPingTarget = "1.1.1.1";

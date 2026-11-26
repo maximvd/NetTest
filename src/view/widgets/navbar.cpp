@@ -10,14 +10,12 @@
 #include "bindings.h"
 #include "linux_input.h"
 #include "theme.h"
-#include "ui_const.h"
 
 namespace view::widgets {
 namespace {
 
 constexpr int32_t kButtonWidth = 32;
 constexpr int32_t kButtonHeight = 20;
-constexpr int32_t kIconSize = 18;
 // Nudges the evenly spaced buttons so they sit above the matching keys.
 constexpr std::array<int32_t, 5> kNavButtonXOffsets = {30, 17, 2, -15, -30};
 
@@ -68,19 +66,20 @@ void NavBar::build() {
 }
 
 void NavBar::create_icon_buttons() {
-    const lv_font_t* icon_font = assets_.load_font("Phosphor-Fill.ttf", kIconSize);
     for (size_t i = 0; i < icon_buttons_.size(); ++i) {
         auto& button = icon_buttons_[i];
-        button = std::make_unique<IconButton>(core_obj_,
-                                              view_model_,
-                                              kButtonWidth,
-                                              kButtonHeight,
-                                              icon_font ? icon_font : &lv_font_montserrat_14);
+        button = std::make_unique<IconButton>(core_obj_, view_model_, kButtonWidth, kButtonHeight);
         button->build();
         lv_obj_set_style_translate_x(button->root(), kNavButtonXOffsets[i], 0);
         lv_obj_add_event_cb(button->root(), clicked_cb, LV_EVENT_CLICKED, this);
         platform::register_nav_button(i, button->root());
     }
+}
+
+std::string NavBar::icon(const char* name) const {
+    // Outline icons shipped as white PNGs in assets/images, tinted per state.
+    const auto path = assets_.resolve(std::string("images/nav_") + name + ".png");
+    return path.empty() ? "" : "A:" + path.string();
 }
 
 void NavBar::update_icon_buttons() {
@@ -95,18 +94,18 @@ void NavBar::update_icon_buttons() {
         bool active;
     };
     const std::array<Spec, kButtonCount> specs = {{
-        {ICON_ETHERNET, Action::ShowEthernet, page == model::AppPage::Ethernet},
-        {ICON_WIFI_HIGH, Action::ShowWifi, page == model::AppPage::Wifi},
-        {ICON_HEARTBEAT, Action::ShowTests, tests_page},
-        tests_page             ? Spec{ICON_PLAY, Action::RunTests, false}
-        : can_switch_interface ? Spec{ICON_ARROWS_DOWN_UP, Action::NextInterface, false}
-                               : Spec{ICON_ARROWS_DOWN_UP, Action::None, false},
-        {view_model_.is_dark_mode() ? ICON_SUN : ICON_MOON, Action::ToggleTheme, false},
+        {"ethernet", Action::ShowEthernet, page == model::AppPage::Ethernet},
+        {"wifi", Action::ShowWifi, page == model::AppPage::Wifi},
+        {"heartbeat", Action::ShowTests, tests_page},
+        tests_page             ? Spec{"play", Action::RunTests, false}
+        : can_switch_interface ? Spec{"swap", Action::NextInterface, false}
+                               : Spec{"swap", Action::None, false},
+        {view_model_.is_dark_mode() ? "sun" : "moon", Action::ToggleTheme, false},
     }};
 
     for (size_t i = 0; i < icon_buttons_.size(); ++i) {
         actions_[i] = specs[i].action;
-        icon_buttons_[i]->set_text(specs[i].icon);
+        icon_buttons_[i]->set_icon(icon(specs[i].icon));
         icon_buttons_[i]->set_active(specs[i].active);
         icon_buttons_[i]->set_enabled(specs[i].action != Action::None);
     }

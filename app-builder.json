@@ -1,11 +1,11 @@
 {
   "app_name": "NetTest",
   "package_name": "nettest",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Network tester for CardputerZero",
   "store": {
     "summary": "Network tester: switch port, VLAN & PoE via LLDP/CDP, DHCP, ping and DNS checks",
-    "description": "NetTest turns the CardputerZero into a pocket network tester. The Ethernet page shows link speed and duplex, how often the link dropped, the IPv4 address, gateway and DNS, plus the switch name, port, VLAN and PoE power the switch advertises over LLDP or CDP, so you can find out where a wall jack goes. The Wi-Fi page shows the network, signal strength and addresses. The Tests page counts the DHCP servers on the network (two means a rogue one), pings the gateway and 1.1.1.1, queries every configured DNS server directly and gives a one-line verdict. Use the 4/5/6 keys for the Ethernet, Wi-Fi and Tests pages, 7 or Up/Down to switch interfaces, 7 on the Tests page to re-run the checks and 8 for light/dark mode. Vibecoded with Claude Code.",
+    "description": "NetTest turns the CardputerZero into a pocket network tester. The Ethernet page shows link speed and duplex, how often the link dropped, the IPv4 address, gateway and DNS, plus the switch name, port, VLAN and PoE power the switch advertises over LLDP or CDP, so you can find out where a wall jack goes. The Wi-Fi page shows the network, signal strength and addresses. The Tests page counts the DHCP servers on the network (two means a rogue one), pings the gateway and 1.1.1.1, queries every configured DNS server directly and gives a one-line verdict. Use the 4/5/6 keys for the Ethernet, Wi-Fi and Tests pages, 7 to switch interfaces (or re-run the checks on the Tests page), the arrow keys and Enter to open any tile for the full details and 8 for light/dark mode. Vibecoded with Claude Code.",
     "categories": [
       "System Tools"
     ],

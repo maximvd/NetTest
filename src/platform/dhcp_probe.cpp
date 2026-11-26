@@ -40,6 +40,8 @@ constexpr uint32_t kMagicCookie = 0x63825363;
 constexpr uint8_t kBootReply = 2;
 constexpr uint8_t kOptionPad = 0;
 constexpr uint8_t kOptionRouter = 3;
+constexpr uint8_t kOptionDns = 6;
+constexpr uint8_t kOptionDomain = 15;
 constexpr uint8_t kOptionLeaseTime = 51;
 constexpr uint8_t kOptionMessageType = 53;
 constexpr uint8_t kOptionServerId = 54;
@@ -89,6 +91,19 @@ bool parse_dhcp_offer(const uint8_t* data, size_t length, uint32_t xid, DhcpOffe
         }
         else if (code == kOptionRouter && option_length >= 4) {
             offer.router = format_ipv4(value);
+        }
+        else if (code == kOptionDns) {
+            for (size_t j = 0; j + 4 <= option_length; j += 4) {
+                offer.dns_servers.push_back(format_ipv4(value + j));
+            }
+        }
+        else if (code == kOptionDomain && option_length > 0) {
+            for (size_t j = 0; j < option_length; ++j) {
+                const char c = static_cast<char>(value[j]);
+                if (c >= 0x20 && c < 0x7f) {
+                    offer.domain += c;
+                }
+            }
         }
         else if (code == kOptionLeaseTime && option_length >= 4) {
             offer.lease_seconds = static_cast<int32_t>(std::min<uint32_t>(read_u32(value), INT32_MAX));
@@ -233,7 +248,8 @@ DhcpProbeResult discover_dhcp_servers(const std::string& interface_name, int wai
         return result;
     }
 
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(wait_ms);
+    const auto sent_at = std::chrono::steady_clock::now();
+    const auto deadline = sent_at + std::chrono::milliseconds(wait_ms);
     std::array<uint8_t, 2048> buffer{};
     while (true) {
         const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -264,6 +280,9 @@ DhcpProbeResult discover_dhcp_servers(const std::string& interface_name, int wai
         if (!parse_dhcp_offer(udp + 8, static_cast<size_t>(received) - ip_header - 8, xid, offer)) {
             continue;
         }
+        offer.response_ms = static_cast<int32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                                     std::chrono::steady_clock::now() - sent_at)
+                                                     .count());
         if (offer.server.empty()) {
             offer.server = std::to_string(ip[12]) + "." + std::to_string(ip[13]) + "." + std::to_string(ip[14]) +
                            "." + std::to_string(ip[15]);

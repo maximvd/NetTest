@@ -12,6 +12,7 @@
 
 #include <array>
 #include <memory>
+#include <string>
 
 namespace app {
 class AssetManager;
@@ -37,6 +38,7 @@ private:
 
     void create_icon_buttons();
     void update_icon_buttons();
+    std::string icon(const char* name) const;
     void perform(Action action);
 
     static void clicked_cb(lv_event_t* event);

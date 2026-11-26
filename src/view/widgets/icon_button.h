@@ -14,18 +14,16 @@
 
 namespace view::widgets {
 
-// Transparent button showing one icon glyph. The glyph uses the theme's text
-// colour, the accent colour when active (current page), or the disabled colour.
+// Transparent button showing one outline icon (a white PNG, tinted). The icon
+// uses the theme's text colour, the accent colour when active (current page),
+// or the disabled colour.
 class IconButton : public BaseWidgets {
 public:
-    IconButton(lv_obj_t* parent,
-               viewmodel::BaseViewModel& view_model,
-               int32_t width,
-               int32_t height,
-               const lv_font_t* font);
+    IconButton(lv_obj_t* parent, viewmodel::BaseViewModel& view_model, int32_t width, int32_t height);
 
     void build() override;
-    void set_text(const char* text);
+    // LVGL image source ("A:/usr/share/nettest/images/nav_wifi.png"); empty hides the icon.
+    void set_icon(const std::string& source);
     void set_enabled(bool enabled);
     void set_active(bool active);
 
@@ -37,9 +35,8 @@ private:
     viewmodel::BaseViewModel& view_model_;
     int32_t width_;
     int32_t height_;
-    std::string text_;
-    const lv_font_t* font_;
-    lv_obj_t* label_{nullptr};
+    std::string source_;
+    lv_obj_t* image_{nullptr};
     bool enabled_{true};
     bool active_{false};
 };

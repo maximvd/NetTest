@@ -226,6 +226,16 @@ std::optional<Neighbor> parse_lldp_frame(const uint8_t* frame, size_t length) {
                     }
                     break;
                 }
+                if (lldp_med && value[3] == 2 && tlv_length >= 8) {
+                    // Network Policy: app type(1), then U T X flags + VLAN(12) + priority + DSCP.
+                    const bool voice = value[4] == 1;
+                    const bool unknown_policy = (value[5] & 0x80) != 0;
+                    const int32_t vlan = ((value[5] & 0x1f) << 7) | (value[6] >> 1);
+                    if (voice && !unknown_policy && vlan > 0 && vlan < 4095) {
+                        neighbor.voice_vlan = vlan;
+                    }
+                    break;
+                }
                 if (lldp_med && value[3] == 4 && tlv_length >= 7 && neighbor.poe_milliwatts < 0) {
                     // Extended Power-via-MDI: type/source/priority(1) value(2, 0.1 W).
                     const auto power = read_u16(value + 5);
@@ -344,6 +354,14 @@ std::optional<Neighbor> parse_cdp_frame(const uint8_t* frame, size_t length) {
                     neighbor.vlan = read_u16(value);
                 }
                 break;
+            case 0x000e: // Appliance VLAN-ID: (appliance id(1) vlan(2))..., the voice VLAN
+                if (value_length >= 3) {
+                    const auto vlan = read_u16(value + 1);
+                    if (vlan > 0 && vlan < 4095) {
+                        neighbor.voice_vlan = vlan;
+                    }
+                }
+                break;
             case 0x0010: // Power consumption, in mW
                 if (value_length >= 2 && read_u16(value) > 0) {
                     neighbor.poe_milliwatts = read_u16(value);
@@ -454,6 +472,9 @@ void NeighborListener::set_neighbor(Neighbor neighbor) {
         }
         if (neighbor_->platform.empty()) {
             neighbor_->platform = neighbor.platform;
+        }
+        if (neighbor_->voice_vlan < 0) {
+            neighbor_->voice_vlan = neighbor.voice_vlan;
         }
         if (neighbor_->poe_milliwatts < 0) {
             neighbor_->poe_milliwatts = neighbor.poe_milliwatts;

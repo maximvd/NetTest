@@ -18,6 +18,9 @@ struct DhcpOffer {
     std::string offered_ip;
     std::string router;         // first router (option 3)
     int32_t lease_seconds{-1};  // option 51
+    std::vector<std::string> dns_servers; // option 6
+    std::string domain;         // option 15
+    int32_t response_ms{-1};    // from sending the DISCOVER to this offer
 };
 
 struct DhcpProbeResult {

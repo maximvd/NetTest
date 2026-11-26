@@ -10,12 +10,8 @@
 
 namespace view::widgets {
 
-IconButton::IconButton(lv_obj_t* parent,
-                       viewmodel::BaseViewModel& view_model,
-                       int32_t width,
-                       int32_t height,
-                       const lv_font_t* font)
-    : BaseWidgets(parent), view_model_(view_model), width_(width), height_(height), font_(font) {}
+IconButton::IconButton(lv_obj_t* parent, viewmodel::BaseViewModel& view_model, int32_t width, int32_t height)
+    : BaseWidgets(parent), view_model_(view_model), width_(width), height_(height) {}
 
 void IconButton::build() {
     if (core_obj_) {
@@ -28,22 +24,25 @@ void IconButton::build() {
     lv_obj_clear_flag(core_obj_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(core_obj_, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
 
-    label_ = lv_label_create(core_obj_);
-    lv_label_set_text(label_, text_.c_str());
-    if (font_) {
-        lv_obj_set_style_text_font(label_, font_, 0);
-    }
-    lv_obj_center(label_);
+    image_ = lv_image_create(core_obj_);
+    lv_obj_center(image_);
+    lv_obj_set_style_image_recolor_opa(image_, LV_OPA_COVER, 0);
 
     lv_subject_add_observer_obj(view_model_.dark_mode_subject(), theme_observer_cb, core_obj_, this);
 }
 
-void IconButton::set_text(const char* text) {
-    text_ = text ? text : "";
-    if (label_) {
-        lv_label_set_text(label_, text_.c_str());
-        lv_obj_center(label_);
+void IconButton::set_icon(const std::string& source) {
+    if (source == source_ || !image_) {
+        return;
     }
+    source_ = source;
+    if (source_.empty()) {
+        lv_obj_add_flag(image_, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    lv_image_set_src(image_, source_.c_str());
+    lv_obj_remove_flag(image_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_center(image_);
 }
 
 void IconButton::set_enabled(bool enabled) {
@@ -72,12 +71,12 @@ void IconButton::theme_observer_cb(lv_observer_t* observer, lv_subject_t*) {
 }
 
 void IconButton::apply_style() {
-    if (!label_) {
+    if (!image_) {
         return;
     }
     const auto colors = view::palette(view_model_.is_dark_mode());
-    const auto color = !enabled_ ? colors.text_disabled : active_ ? colors.primary : colors.text;
-    lv_obj_set_style_text_color(label_, color, 0);
+    const auto color = !enabled_ ? colors.text_disabled : active_ ? colors.primary : colors.text_secondary;
+    lv_obj_set_style_image_recolor(image_, color, 0);
 }
 
 } // namespace view::widgets

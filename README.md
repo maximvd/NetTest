@@ -399,7 +399,7 @@ By default, the debian package is copied to '$HOME' folder, normally it's under 
 On your device, install the copied package with `apt` and replace the package file name with the one you copied:
 
 ```shell
-sudo apt install --no-install-recommends ./NetTest_0.2.0_rev1_arm64.deb
+sudo apt install --no-install-recommends ./NetTest_0.3.0_rev1_arm64.deb
 ```
 
 
@@ -416,8 +416,9 @@ The bottom nav bar maps hardware/keyboard keys from left to right:
 | `6` | Tests page | Tests page |
 | `7` | Next interface of that kind | Run the checks again |
 | `8` | Light / dark theme | Light / dark theme |
-| `Up` / `Down` | Previous / next interface of that kind | - |
-| `ESC` | Hold to exit | Back to the last Ethernet / Wi-Fi page |
+| Arrow keys | Move the focus ring over the tiles | Move the focus ring over the tiles |
+| `Enter` | Open / close the focused tile's detail panel | Open / close the focused tile's detail panel |
+| `ESC` | Close the panel or ring; hold to exit | Close the panel or ring, else back to the last Ethernet / Wi-Fi page |
 
 `FN+H` opens the keyboard help, `FN+J` saves a screenshot.
 
@@ -470,7 +471,7 @@ Debian packages are produced with CPack and written to `dist/`. The package file
 Default example:
 
 ```text
-dist/NetTest_0.2.0_rev1_arm64.deb
+dist/NetTest_0.3.0_rev1_arm64.deb
 ```
 
 Package layout:

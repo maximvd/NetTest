@@ -178,10 +178,19 @@ uint32_t map_evdev_key(uint16_t code) {
             return LV_KEY_UP;
         case KEY_DOWN:
             return LV_KEY_DOWN;
+        case KEY_ENTER:
+        case KEY_KPENTER:
+            return LV_KEY_ENTER;
+        // The CardputerZero keyboard has its arrow legends on F (up), Z (left),
+        // X (down) and C (right) and reports those letter codes for them.
+        case KEY_F:
+            return LV_KEY_UP;
         case KEY_Z:
-            return 'z';
+            return LV_KEY_LEFT;
+        case KEY_X:
+            return LV_KEY_DOWN;
         case KEY_C:
-            return 'c';
+            return LV_KEY_RIGHT;
         case KEY_4:
             return '4';
         case KEY_5:
@@ -213,7 +222,7 @@ bool has_nav_keys(int fd) {
     };
 
     return has_key(KEY_ESC) || has_key(KEY_LEFT) || has_key(KEY_RIGHT) || has_key(KEY_UP) ||
-           has_key(KEY_DOWN) || has_key(KEY_Z) ||
+           has_key(KEY_DOWN) || has_key(KEY_ENTER) || has_key(KEY_F) || has_key(KEY_X) || has_key(KEY_Z) ||
            has_key(KEY_C) || has_key(KEY_4) || has_key(KEY_5) || has_key(KEY_6) ||
            has_key(KEY_7) || has_key(KEY_8) || has_key(KEY_SYSRQ) || has_key(KEY_HELP);
 }
@@ -407,6 +416,8 @@ const char* describe_key(uint32_t key) {
             return "Up";
         case LV_KEY_DOWN:
             return "Down";
+        case LV_KEY_ENTER:
+            return "Enter";
         case kKeyPrintScreen:
             return "PrintScreen";
         case kKeyHelp:

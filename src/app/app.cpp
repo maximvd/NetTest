@@ -169,11 +169,26 @@ private:
             return true;
         }
 
-        // Up / down move between interfaces on the Ethernet and Wi-Fi pages.
-        if ((key == LV_KEY_UP || key == LV_KEY_DOWN) && view_model_.is_link_page()) {
+        // Arrow keys move the focus ring over the tiles; Enter opens the focused
+        // tile's detail panel (and closes it again).
+        if (key == LV_KEY_LEFT || key == LV_KEY_RIGHT || key == LV_KEY_UP || key == LV_KEY_DOWN) {
+            if (!long_pressed && !view_model_.is_detail_open()) {
+                using Direction = viewmodel::BaseViewModel::Direction;
+                view_model_.move_focus(key == LV_KEY_LEFT    ? Direction::Left
+                                       : key == LV_KEY_RIGHT ? Direction::Right
+                                       : key == LV_KEY_UP    ? Direction::Up
+                                                             : Direction::Down);
+            }
+            return true;
+        }
+        if (key == LV_KEY_ENTER) {
             if (!long_pressed) {
-                view_model_.network().select_adjacent_interface(view_model_.current_link_kind(),
-                                                                key == LV_KEY_DOWN ? 1 : -1);
+                if (view_model_.is_detail_open()) {
+                    view_model_.close_detail_or_focus();
+                }
+                else {
+                    view_model_.open_detail();
+                }
             }
             return true;
         }
@@ -191,6 +206,13 @@ private:
         }
         else {
             exit_key_pressed_ = key;
+            // ESC first closes an open panel, then hides the focus ring.
+            if (view_model_.close_detail_or_focus()) {
+                exit_armed_ = false;
+                consumed_escape_ = true;
+                return true;
+            }
+            consumed_escape_ = false;
             exit_armed_ = view_model_.is_link_page();
             if (exit_armed_) {
                 toast_->show_persistent_highlighted("Hold ",
@@ -209,11 +231,12 @@ private:
 
         if (exit_armed_) {
             toast_->hide();
-        } else if (key == LV_KEY_ESC && !view_model_.is_link_page()) {
+        } else if (key == LV_KEY_ESC && !consumed_escape_ && !view_model_.is_link_page()) {
             view_model_.show_last_link_page();
         }
         exit_key_pressed_ = 0;
         exit_armed_ = false;
+        consumed_escape_ = false;
     }
 
     static bool global_key_listener(uint32_t key,
@@ -236,6 +259,7 @@ private:
     std::unique_ptr<view::widgets::HelpPopup> help_popup_;
     uint32_t exit_key_pressed_{0};
     bool exit_armed_{false};
+    bool consumed_escape_{false}; // this ESC press closed a panel or ring
 };
 
 #if !USE_DESKTOP
